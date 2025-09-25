@@ -1,0 +1,331 @@
+# Install Node.js LTS - JavaScript Runtime + npm Package Manager
+
+function Test-NodeJSInstalled {
+    $installed = $false
+    
+    try {
+        $nodeVersion = node --version 2>$null
+        if ($nodeVersion) {
+            Write-Host "Node.js found: $nodeVersion" -ForegroundColor Green
+            $installed = $true
+        }
+    } catch {
+        Write-Host "Node.js not found in PATH" -ForegroundColor Yellow
+    }
+    
+    # Check via Chocolatey
+    if (-not $installed) {
+        $chocoPackage = choco list --local-only | Select-String "nodejs"
+        if ($chocoPackage) {
+            Write-Host "Node.js found via Chocolatey" -ForegroundColor Green
+            $installed = $true
+        }
+    }
+    
+    return $installed
+}
+
+function Test-NodeJSFunctionality {
+    Write-Host "Running Node.js functionality tests..." -ForegroundColor Cyan
+    
+    $results = @{
+        NodeTest = $false
+        NpmTest = $false
+        NpxTest = $false
+        GlobalTest = $false
+        OverallSuccess = $false
+    }
+    
+    Write-Host "  Testing Node.js..." -ForegroundColor Yellow
+    try {
+        $nodeVersion = node --version 2>$null
+        if ($nodeVersion) {
+            Write-Host "     Node.js version: $nodeVersion" -ForegroundColor Green
+            
+            # Check if it's LTS version
+            if ($nodeVersion -match "v(\d+)\.") {
+                $majorVersion = [int]$matches[1]
+                if ($majorVersion % 2 -eq 0 -and $majorVersion -ge 18) {
+                    Write-Host "     ✓ LTS version detected" -ForegroundColor Green
+                } else {
+                    Write-Host "     ⚠ Non-LTS or old version" -ForegroundColor Yellow
+                }
+            }
+            
+            $results.NodeTest = $true
+        }
+    } catch {
+        Write-Host "     Node.js test failed" -ForegroundColor Red
+    }
+    
+    Write-Host "  Testing npm..." -ForegroundColor Yellow
+    try {
+        $npmVersion = npm --version 2>$null
+        if ($npmVersion) {
+            Write-Host "     npm version: $npmVersion" -ForegroundColor Green
+            $results.NpmTest = $true
+        }
+    } catch {
+        Write-Host "     npm test failed" -ForegroundColor Red
+    }
+    
+    Write-Host "  Testing npx..." -ForegroundColor Yellow
+    try {
+        $npxVersion = npx --version 2>$null
+        if ($npxVersion) {
+            Write-Host "     npx version: $npxVersion" -ForegroundColor Green
+            $results.NpxTest = $true
+        }
+    } catch {
+        Write-Host "     npx test failed" -ForegroundColor Red
+    }
+    
+    Write-Host "  Testing global npm packages..." -ForegroundColor Yellow
+    try {
+        $globalList = npm list -g --depth=0 2>$null
+        if ($globalList) {
+            Write-Host "     Global packages accessible" -ForegroundColor Green
+            $results.GlobalTest = $true
+        }
+    } catch {
+        Write-Host "     Global packages test failed" -ForegroundColor Red
+    }
+    
+    $passedTests = ($results.NodeTest + $results.NpmTest + $results.NpxTest + $results.GlobalTest)
+    $results.OverallSuccess = ($passedTests -ge 3)
+    
+    Write-Host "  Tests passed: $passedTests/4" -ForegroundColor Green
+    
+    return $results
+}
+
+function Update-NodeJS {
+    Write-Host "Updating Node.js..." -ForegroundColor Cyan
+    
+    if (-not (Test-NodeJSInstalled)) {
+        Write-Host "Node.js is not installed. Cannot update." -ForegroundColor Red
+        return $false
+    }
+    
+    try {
+        # Try to update via Chocolatey if available
+        if (Get-Command choco -ErrorAction SilentlyContinue) {
+            Write-Host "Attempting to update via Chocolatey..." -ForegroundColor Yellow
+            choco upgrade nodejs-lts -y
+            return $true
+        }
+        
+        # Try WinGet update
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Write-Host "Attempting to update via WinGet..." -ForegroundColor Yellow
+            winget upgrade OpenJS.NodeJS.LTS
+            return $true
+        }
+        
+        Write-Host "For Node.js updates:" -ForegroundColor Yellow
+        Write-Host "  1. Download latest LTS from https://nodejs.org/" -ForegroundColor White
+        Write-Host "  2. Run installer (will automatically update)" -ForegroundColor White
+        Write-Host "  3. Or use npm: npm install -g n; n lts" -ForegroundColor White
+        
+        return $false
+        
+    } catch {
+        Write-Host "Update failed: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+}
+
+function Install-NodeJSPackageManager {
+    Write-Host "Installing Node.js LTS..." -ForegroundColor Cyan
+    
+    $installSuccess = $false
+    
+    # Method 1: Try Chocolatey first
+    if (Get-Command choco -ErrorAction SilentlyContinue) {
+        Write-Host "Installing via Chocolatey..." -ForegroundColor Yellow
+        try {
+            # Install Node.js LTS version
+            choco install nodejs-lts -y
+            $installSuccess = $true
+            Write-Host "Node.js LTS installed successfully via Chocolatey!" -ForegroundColor Green
+        } catch {
+            Write-Host "Chocolatey installation failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+    
+    # Method 2: Try WinGet if Chocolatey failed
+    if (-not $installSuccess -and (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-Host "Installing via WinGet..." -ForegroundColor Yellow
+        try {
+            winget install --id OpenJS.NodeJS.LTS --source winget
+            $installSuccess = $true
+            Write-Host "Node.js LTS installed successfully via WinGet!" -ForegroundColor Green
+        } catch {
+            Write-Host "WinGet installation failed, providing manual installation guidance..." -ForegroundColor Yellow
+        }
+    }
+    
+    # Method 3: Manual installation guidance
+    if (-not $installSuccess) {
+        Write-Host "Automated installation failed. Manual installation required:" -ForegroundColor Yellow
+        Write-Host "`n=== Manual Installation ===" -ForegroundColor Cyan
+        Write-Host "1. Download Node.js LTS from: https://nodejs.org/" -ForegroundColor White
+        Write-Host "2. Choose 'LTS' version (recommended for most users)" -ForegroundColor White
+        Write-Host "3. Run installer as Administrator" -ForegroundColor White
+        Write-Host "4. Accept default installation path" -ForegroundColor White
+        Write-Host "5. Ensure 'Add to PATH' is checked" -ForegroundColor White
+        Write-Host "6. Include npm package manager" -ForegroundColor White
+    }
+    
+    return $installSuccess
+}
+
+function Configure-NodeJS {
+    Write-Host "Configuring Node.js and npm..." -ForegroundColor Cyan
+    
+    try {
+        # Configure npm registry (ensure it's set to official registry)
+        Write-Host "Configuring npm registry..." -ForegroundColor Yellow
+        npm config set registry https://registry.npmjs.org/
+        
+        # Set npm init defaults for faster project creation
+        Write-Host "Setting npm init defaults..." -ForegroundColor Yellow
+        npm config set init.author.name "Developer"
+        npm config set init.license "MIT"
+        npm config set init.version "1.0.0"
+        
+        # Update npm to latest version
+        Write-Host "Updating npm to latest version..." -ForegroundColor Yellow
+        npm install -g npm@latest
+        
+        # Install useful global packages
+        Write-Host "Installing useful global packages..." -ForegroundColor Yellow
+        $globalPackages = @(
+            "nodemon",      # Auto-restart for development
+            "live-server",  # Simple development server
+            "http-server",  # Static file server
+            "pm2"           # Process manager for production
+        )
+        
+        foreach ($package in $globalPackages) {
+            Write-Host "  Installing $package..." -ForegroundColor Gray
+            npm install -g $package --silent
+        }
+        
+        Write-Host "Node.js configuration completed!" -ForegroundColor Green
+        return $true
+        
+    } catch {
+        Write-Host "Configuration failed: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+}
+
+function Show-NodeJSUsageInfo {
+    Write-Host "`n=== Node.js Usage Guide ===" -ForegroundColor Magenta
+    
+    Write-Host "Node.js Commands:" -ForegroundColor Yellow
+    Write-Host "  node --version              # Check Node.js version" -ForegroundColor White
+    Write-Host "  node app.js                 # Run JavaScript file" -ForegroundColor White
+    Write-Host "  node -e 'console.log(`"Hello`")' # Execute inline code" -ForegroundColor White
+    Write-Host "  node --inspect app.js       # Debug mode" -ForegroundColor White
+    
+    Write-Host "`nnpm Commands:" -ForegroundColor Yellow
+    Write-Host "  npm --version               # Check npm version" -ForegroundColor White
+    Write-Host "  npm init                    # Create package.json" -ForegroundColor White
+    Write-Host "  npm init -y                 # Quick package.json" -ForegroundColor White
+    Write-Host "  npm install package-name    # Install local package" -ForegroundColor White
+    Write-Host "  npm install -g package-name # Install global package" -ForegroundColor White
+    Write-Host "  npm install                 # Install all dependencies" -ForegroundColor White
+    Write-Host "  npm update                  # Update packages" -ForegroundColor White
+    Write-Host "  npm list                    # List installed packages" -ForegroundColor White
+    Write-Host "  npm run script-name         # Run npm script" -ForegroundColor White
+    
+    Write-Host "`nUseful npx Commands:" -ForegroundColor Yellow
+    Write-Host "  npx create-react-app myapp  # Create React app" -ForegroundColor White
+    Write-Host "  npx express-generator myapp # Create Express app" -ForegroundColor White
+    Write-Host "  npx @angular/cli new myapp  # Create Angular app" -ForegroundColor White
+    Write-Host "  npx create-next-app myapp   # Create Next.js app" -ForegroundColor White
+    
+    Write-Host "`nGlobal Tools (Installed):" -ForegroundColor Yellow
+    Write-Host "  nodemon app.js              # Auto-restart on file changes" -ForegroundColor White
+    Write-Host "  live-server                 # Development server with live reload" -ForegroundColor White
+    Write-Host "  http-server                 # Simple static file server" -ForegroundColor White
+    Write-Host "  pm2 start app.js            # Production process manager" -ForegroundColor White
+    
+    Write-Host "`nProject Structure:" -ForegroundColor Yellow
+    Write-Host "  package.json                # Project configuration" -ForegroundColor White
+    Write-Host "  package-lock.json           # Dependency lock file" -ForegroundColor White
+    Write-Host "  node_modules/               # Installed dependencies" -ForegroundColor White
+    Write-Host "  .gitignore                  # Git ignore file" -ForegroundColor White
+    
+    Write-Host "`nBest Practices:" -ForegroundColor Yellow
+    Write-Host "  • Always use package.json for dependencies" -ForegroundColor White
+    Write-Host "  • Use .nvmrc for version management in teams" -ForegroundColor White
+    Write-Host "  • Add node_modules/ to .gitignore" -ForegroundColor White
+    Write-Host "  • Use npm scripts for automation" -ForegroundColor White
+    Write-Host "  • Keep global packages minimal" -ForegroundColor White
+    
+    Write-Host "`nVersion Info:" -ForegroundColor Yellow
+    Write-Host "  • LTS versions: 18.x, 20.x (recommended)" -ForegroundColor White
+    Write-Host "  • Current: Latest features (may be unstable)" -ForegroundColor White
+    Write-Host "  • Support: LTS versions get 30 months support" -ForegroundColor White
+}
+
+# Main execution
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Node.js LTS Installation Script" -ForegroundColor Cyan
+Write-Host "JavaScript Runtime + npm + Global Tools" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+
+if (Test-NodeJSInstalled) {
+    Write-Host "Node.js is already installed!" -ForegroundColor Green
+    
+    # Test Node.js functionality
+    $testResults = Test-NodeJSFunctionality
+    
+    if ($testResults.OverallSuccess) {
+        Write-Host "`n[SUCCESS] Node.js is working correctly!" -ForegroundColor Green
+    } else {
+        Write-Host "`n[WARNING] Node.js may need additional configuration." -ForegroundColor Yellow
+        
+        if (-not $testResults.NpmTest) {
+            Write-Host "  • npm not working - reinstall Node.js" -ForegroundColor Yellow
+        }
+        if (-not $testResults.NpxTest) {
+            Write-Host "  • npx not working - update npm" -ForegroundColor Yellow
+        }
+        if (-not $testResults.GlobalTest) {
+            Write-Host "  • Global packages inaccessible" -ForegroundColor Yellow
+        }
+    }
+    
+    # Configure Node.js
+    Configure-NodeJS
+    Show-NodeJSUsageInfo
+} else {
+    Write-Host "Installing Node.js LTS..." -ForegroundColor Yellow
+    
+    if (Install-NodeJSPackageManager) {
+        Write-Host "`n[SUCCESS] Node.js installation completed!" -ForegroundColor Green
+        
+        # Test the installation
+        Start-Sleep -Seconds 5
+        $testResults = Test-NodeJSFunctionality
+        
+        if ($testResults.OverallSuccess) {
+            Write-Host "[SUCCESS] Installation verified successfully!" -ForegroundColor Green
+        } else {
+            Write-Host "[INFO] Installation completed, but may need PATH refresh." -ForegroundColor Yellow
+        }
+        
+        # Configure Node.js
+        Configure-NodeJS
+        Show-NodeJSUsageInfo
+    } else {
+        Write-Host "`n[INFO] Please complete Node.js installation manually." -ForegroundColor Yellow
+        Show-NodeJSUsageInfo
+    }
+}
+
+Write-Host "`n[OK] Node.js installation script completed!" -ForegroundColor Green

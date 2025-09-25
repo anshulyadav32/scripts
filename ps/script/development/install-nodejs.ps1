@@ -1,5 +1,14 @@
 # Install Node.js LTS and npm
 # This script downloads and installs Node.js LTS with npm package manager
+# Enhanced with comprehensive software verification system
+
+# Import the software verification module
+$modulePath = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) "modules\SoftwareVerification.psm1"
+if (Test-Path $modulePath) {
+    Import-Module $modulePath -Force
+} else {
+    Write-Warning "Software verification module not found. Using basic verification."
+}
 
 param(
     [switch]$LTS = $true,
@@ -7,18 +16,93 @@ param(
     [switch]$Silent = $false,
     [switch]$Force = $false,
     [switch]$InstallYarn = $false,
-    [switch]$InstallPnpm = $false
+    [switch]$InstallPnpm = $false,
+    [switch]$VerifyOnly = $false,
+    [switch]$Detailed = $false
 )
+
+function Test-NodeJSInstallation {
+    <#
+    .SYNOPSIS
+    Enhanced function to verify Node.js installation with detailed information.
+    
+    .DESCRIPTION
+    Uses the SoftwareVerification module for comprehensive verification, falls back to basic checks if unavailable.
+    #>
+    param(
+        [switch]$Detailed
+    )
+    
+    # Try to use the verification module first
+    if (Get-Command Test-PredefinedSoftware -ErrorAction SilentlyContinue) {
+        try {
+            $result = Test-PredefinedSoftware -SoftwareName "Node.js" -Detailed:$Detailed
+            return $result
+        } catch {
+            Write-Warning "Verification module failed for Node.js. Using fallback method."
+        }
+    }
+    
+    # Fallback to basic verification
+    $isInstalled = $false
+    $version = "Unknown"
+    $paths = @()
+    
+    $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
+    $npmCommand = Get-Command npm -ErrorAction SilentlyContinue
+    
+    if ($nodeCommand -and $npmCommand) {
+        $isInstalled = $true
+        $paths += $nodeCommand.Source
+        $paths += $npmCommand.Source
+        try {
+            $nodeVersion = & node --version 2>$null
+            $npmVersion = & npm --version 2>$null
+            if ($nodeVersion -and $npmVersion) {
+                $version = "Node.js: $nodeVersion, npm: $npmVersion"
+            }
+        } catch {
+            $version = "Unknown"
+        }
+    }
+    
+    return @{
+        IsInstalled = $isInstalled
+        Version = $version
+        Paths = $paths
+        Status = if ($isInstalled) { "Installed" } else { "Not Installed" }
+    }
+}
 
 Write-Host "Node.js and npm Installation Script" -ForegroundColor Green
 Write-Host "===================================" -ForegroundColor Green
 
+# Handle verification-only mode
+if ($VerifyOnly) {
+    Write-Host "Verifying Node.js installation..." -ForegroundColor Yellow
+    $verificationResult = Test-NodeJSInstallation -Detailed:$Detailed
+    
+    if ($verificationResult.IsInstalled) {
+        Write-Host "[OK] Node.js is installed" -ForegroundColor Green
+        Write-Host "Version: $($verificationResult.Version)" -ForegroundColor Cyan
+        if ($Detailed -and $verificationResult.Paths) {
+            Write-Host "Installation Path(s):" -ForegroundColor Cyan
+            $verificationResult.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+        }
+    } else {
+        Write-Host "[ERROR] Node.js is not installed" -ForegroundColor Red
+    }
+    exit 0
+}
+
 # Check if Node.js is already installed
-$nodeInstalled = Get-Command node -ErrorAction SilentlyContinue
-if ($nodeInstalled -and -not $Force) {
-    Write-Host "Node.js is already installed:" -ForegroundColor Yellow
-    node --version
-    npm --version
+$nodeVerification = Test-NodeJSInstallation -Detailed:$Detailed
+if ($nodeVerification.IsInstalled -and -not $Force) {
+    Write-Host "Node.js is already installed: $($nodeVerification.Version)" -ForegroundColor Yellow
+    if ($Detailed -and $nodeVerification.Paths) {
+        Write-Host "Installation Path(s):" -ForegroundColor Cyan
+        $nodeVerification.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+    }
     Write-Host "Use -Force to reinstall." -ForegroundColor Cyan
     
     # Skip to package manager installation if Node.js exists
@@ -93,10 +177,21 @@ if ($nodeInstalled -and -not $Force) {
         try {
             $nodeVersion = node --version
             $npmVersion = npm --version
-            Write-Host "Node.js version: $nodeVersion" -ForegroundColor Green
-            Write-Host "npm version: $npmVersion" -ForegroundColor Green
-        } catch {
-            Write-Host "Node.js installation verification failed. You may need to restart your terminal." -ForegroundColor Yellow
+        # Verify installation with enhanced verification
+        Write-Host "Verifying Node.js installation..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 3  # Allow time for installation to complete
+        
+        $postInstallVerification = Test-NodeJSInstallation -Detailed:$Detailed
+        if ($postInstallVerification.IsInstalled) {
+            Write-Host "[OK] Node.js installed successfully!" -ForegroundColor Green
+            Write-Host "Version: $($postInstallVerification.Version)" -ForegroundColor Cyan
+            if ($Detailed -and $postInstallVerification.Paths) {
+                Write-Host "Installation Path(s):" -ForegroundColor Cyan
+                $postInstallVerification.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+            }
+        } else {
+            Write-Host "[WARNING] Node.js installation completed but verification failed" -ForegroundColor Yellow
+            Write-Host "You may need to restart your terminal or check your PATH environment variable" -ForegroundColor Yellow
         }
         
     } catch {

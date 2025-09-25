@@ -1,5 +1,14 @@
 # Interactive Package Manager Installer - Firebase CLI Style
 # This script provides a Firebase-like interactive menu for package manager installation
+# Enhanced with comprehensive software verification system
+
+# Import the software verification module
+$modulePath = Join-Path $PSScriptRoot "..\modules\SoftwareVerification.psm1"
+if (Test-Path $modulePath) {
+    Import-Module $modulePath -Force
+} else {
+    Write-Warning "Software verification module not found. Using basic verification."
+}
 
 function Show-FirebaseStyleMenu {
     <#
@@ -297,6 +306,90 @@ function Show-InstallationSummary {
     Write-Host ""
 }
 
+function Test-PackageManagerInstalled {
+    <#
+    .SYNOPSIS
+    Enhanced function to check if a package manager is installed using the verification module.
+    
+    .DESCRIPTION
+    Uses the SoftwareVerification module for detailed verification, falls back to basic checks if unavailable.
+    #>
+    param(
+        [string]$PackageManager,
+        [switch]$Detailed
+    )
+    
+    # Try to use the verification module first
+    if (Get-Command Test-PredefinedSoftware -ErrorAction SilentlyContinue) {
+        try {
+            $result = Test-PredefinedSoftware -SoftwareName $PackageManager -Detailed:$Detailed
+            return $result
+        } catch {
+            Write-Warning "Verification module failed for $PackageManager. Using fallback method."
+        }
+    }
+    
+    # Fallback to basic verification
+    $isInstalled = $false
+    $version = "Unknown"
+    $paths = @()
+    
+    switch ($PackageManager.ToLower()) {
+        "chocolatey" {
+            $command = Get-Command choco -ErrorAction SilentlyContinue
+            if ($command) {
+                $isInstalled = $true
+                $paths += $command.Source
+                try {
+                    $versionOutput = & choco --version 2>$null
+                    if ($versionOutput) {
+                        $version = $versionOutput.Trim()
+                    }
+                } catch {
+                    $version = "Unknown"
+                }
+            }
+        }
+        "scoop" {
+            $command = Get-Command scoop -ErrorAction SilentlyContinue
+            if ($command) {
+                $isInstalled = $true
+                $paths += $command.Source
+                try {
+                    $versionOutput = & scoop --version 2>$null
+                    if ($versionOutput) {
+                        $version = $versionOutput.Trim()
+                    }
+                } catch {
+                    $version = "Unknown"
+                }
+            }
+        }
+        "winget" {
+            $command = Get-Command winget -ErrorAction SilentlyContinue
+            if ($command) {
+                $isInstalled = $true
+                $paths += $command.Source
+                try {
+                    $versionOutput = & winget --version 2>$null
+                    if ($versionOutput) {
+                        $version = $versionOutput.Trim()
+                    }
+                } catch {
+                    $version = "Unknown"
+                }
+            }
+        }
+    }
+    
+    return @{
+        IsInstalled = $isInstalled
+        Version = $version
+        Paths = $paths
+        Status = if ($isInstalled) { "Installed" } else { "Not Installed" }
+    }
+}
+
 function Install-AllPackageManagers {
     <#
     .SYNOPSIS
@@ -349,8 +442,12 @@ function Install-SelectedPackageManager {
                 if (Test-Path $chocolateyScript) {
                     try {
                         & $chocolateyScript
-                        # Check if Chocolatey was installed successfully
-                        $installSuccess = (Get-Command choco -ErrorAction SilentlyContinue) -ne $null
+                        # Enhanced verification after installation
+                        $verificationResult = Test-PackageManagerInstalled -PackageManager "Chocolatey" -Detailed
+                        $installSuccess = $verificationResult.IsInstalled
+                        if ($installSuccess) {
+                            Write-Host "Chocolatey installed successfully - Version: $($verificationResult.Version)" -ForegroundColor Green
+                        }
                     } catch {
                         $installSuccess = $false
                     }
@@ -366,8 +463,12 @@ function Install-SelectedPackageManager {
                 if (Test-Path $scoopScript) {
                     try {
                         & $scoopScript
-                        # Check if Scoop was installed successfully
-                        $installSuccess = (Get-Command scoop -ErrorAction SilentlyContinue) -ne $null
+                        # Enhanced verification after installation
+                        $verificationResult = Test-PackageManagerInstalled -PackageManager "Scoop" -Detailed
+                        $installSuccess = $verificationResult.IsInstalled
+                        if ($installSuccess) {
+                            Write-Host "Scoop installed successfully - Version: $($verificationResult.Version)" -ForegroundColor Green
+                        }
                     } catch {
                         $installSuccess = $false
                     }
@@ -383,8 +484,12 @@ function Install-SelectedPackageManager {
                 if (Test-Path $wingetScript) {
                     try {
                         & $wingetScript
-                        # Check if WinGet was installed successfully
-                        $installSuccess = (Get-Command winget -ErrorAction SilentlyContinue) -ne $null
+                        # Enhanced verification after installation
+                        $verificationResult = Test-PackageManagerInstalled -PackageManager "WinGet" -Detailed
+                        $installSuccess = $verificationResult.IsInstalled
+                        if ($installSuccess) {
+                            Write-Host "WinGet installed successfully - Version: $($verificationResult.Version)" -ForegroundColor Green
+                        }
                     } catch {
                         $installSuccess = $false
                     }

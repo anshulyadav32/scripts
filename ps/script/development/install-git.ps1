@@ -1,22 +1,103 @@
 # Install Git for Windows
 # This script downloads and installs Git with common developer configurations
+# Enhanced with comprehensive software verification system
+
+# Import the software verification module
+$modulePath = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) "modules\SoftwareVerification.psm1"
+if (Test-Path $modulePath) {
+    Import-Module $modulePath -Force
+} else {
+    Write-Warning "Software verification module not found. Using basic verification."
+}
 
 param(
     [switch]$Silent = $false,
     [switch]$Force = $false,
     [string]$UserName = "",
     [string]$UserEmail = "",
-    [string]$DefaultBranch = "main"
+    [string]$DefaultBranch = "main",
+    [switch]$VerifyOnly = $false,
+    [switch]$Detailed = $false
 )
+
+function Test-GitInstallation {
+    <#
+    .SYNOPSIS
+    Enhanced function to verify Git installation with detailed information.
+    
+    .DESCRIPTION
+    Uses the SoftwareVerification module for comprehensive verification, falls back to basic checks if unavailable.
+    #>
+    param(
+        [switch]$Detailed
+    )
+    
+    # Try to use the verification module first
+    if (Get-Command Test-PredefinedSoftware -ErrorAction SilentlyContinue) {
+        try {
+            $result = Test-PredefinedSoftware -SoftwareName "Git" -Detailed:$Detailed
+            return $result
+        } catch {
+            Write-Warning "Verification module failed for Git. Using fallback method."
+        }
+    }
+    
+    # Fallback to basic verification
+    $isInstalled = $false
+    $version = "Unknown"
+    $paths = @()
+    
+    $command = Get-Command git -ErrorAction SilentlyContinue
+    if ($command) {
+        $isInstalled = $true
+        $paths += $command.Source
+        try {
+            $versionOutput = & git --version 2>$null
+            if ($versionOutput) {
+                $version = $versionOutput -replace "git version ", ""
+            }
+        } catch {
+            $version = "Unknown"
+        }
+    }
+    
+    return @{
+        IsInstalled = $isInstalled
+        Version = $version
+        Paths = $paths
+        Status = if ($isInstalled) { "Installed" } else { "Not Installed" }
+    }
+}
 
 Write-Host "Git Installation Script" -ForegroundColor Green
 Write-Host "======================" -ForegroundColor Green
 
+# Handle verification-only mode
+if ($VerifyOnly) {
+    Write-Host "Verifying Git installation..." -ForegroundColor Yellow
+    $verificationResult = Test-GitInstallation -Detailed:$Detailed
+    
+    if ($verificationResult.IsInstalled) {
+        Write-Host "[OK] Git is installed" -ForegroundColor Green
+        Write-Host "Version: $($verificationResult.Version)" -ForegroundColor Cyan
+        if ($Detailed -and $verificationResult.Paths) {
+            Write-Host "Installation Path(s):" -ForegroundColor Cyan
+            $verificationResult.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+        }
+    } else {
+        Write-Host "[ERROR] Git is not installed" -ForegroundColor Red
+    }
+    exit 0
+}
+
 # Check if Git is already installed
-$gitInstalled = Get-Command git -ErrorAction SilentlyContinue
-if ($gitInstalled -and -not $Force) {
-    Write-Host "Git is already installed. Current version:" -ForegroundColor Yellow
-    git --version
+$gitVerification = Test-GitInstallation -Detailed:$Detailed
+if ($gitVerification.IsInstalled -and -not $Force) {
+    Write-Host "Git is already installed. Current version: $($gitVerification.Version)" -ForegroundColor Yellow
+    if ($Detailed -and $gitVerification.Paths) {
+        Write-Host "Installation Path(s):" -ForegroundColor Cyan
+        $gitVerification.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+    }
     Write-Host "Use -Force to reinstall." -ForegroundColor Cyan
     
     # Skip to configuration if Git is already installed
@@ -84,7 +165,24 @@ try {
     $process = Start-Process -FilePath $tempPath -ArgumentList $installArgs -Wait -PassThru
     
     if ($process.ExitCode -eq 0) {
-        Write-Host "Git installed successfully!" -ForegroundColor Green
+        Write-Host "Git installation completed!" -ForegroundColor Green
+        
+        # Verify installation with enhanced verification
+        Write-Host "Verifying Git installation..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 2  # Allow time for installation to complete
+        
+        $postInstallVerification = Test-GitInstallation -Detailed:$Detailed
+        if ($postInstallVerification.IsInstalled) {
+            Write-Host "[OK] Git installed successfully!" -ForegroundColor Green
+            Write-Host "Version: $($postInstallVerification.Version)" -ForegroundColor Cyan
+            if ($Detailed -and $postInstallVerification.Paths) {
+                Write-Host "Installation Path(s):" -ForegroundColor Cyan
+                $postInstallVerification.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+            }
+        } else {
+            Write-Host "[WARNING] Git installation completed but verification failed" -ForegroundColor Yellow
+            Write-Host "You may need to restart your terminal or check your PATH environment variable" -ForegroundColor Yellow
+        }
     } else {
         Write-Host "Git installation failed with exit code: $($process.ExitCode)" -ForegroundColor Red
         exit 1

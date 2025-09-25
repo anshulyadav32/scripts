@@ -1,30 +1,141 @@
 # Install Web Browsers (Chrome, Brave)
 # This script downloads and installs modern web browsers
+# Enhanced with comprehensive software verification system
+
+# Import the software verification module
+$modulePath = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) "modules\SoftwareVerification.psm1"
+if (Test-Path $modulePath) {
+    Import-Module $modulePath -Force
+} else {
+    Write-Warning "Software verification module not found. Using basic verification."
+}
 
 param(
     [switch]$Chrome = $true,
     [switch]$Brave = $true,
     [switch]$Silent = $false,
-    [switch]$Force = $false
+    [switch]$Force = $false,
+    [switch]$VerifyOnly = $false,
+    [switch]$Detailed = $false
 )
+
+# Enhanced function to check if application is installed using the verification module
+function Test-AppInstalled {
+    param(
+        [string]$AppName,
+        [switch]$Detailed
+    )
+    
+    # Try to use the verification module first
+    if (Get-Command Test-PredefinedSoftware -ErrorAction SilentlyContinue) {
+        try {
+            $result = Test-PredefinedSoftware -SoftwareName $AppName -Detailed:$Detailed
+            return $result
+        } catch {
+            Write-Warning "Verification module failed for $AppName. Using fallback method."
+        }
+    }
+    
+    # Fallback to basic verification
+    $isInstalled = $false
+    $version = "Unknown"
+    $paths = @()
+    
+    # Check for common browser installations
+    switch ($AppName) {
+        "Chrome" {
+            $chromeExe = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
+            $chromeExe86 = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+            if (Test-Path $chromeExe) {
+                $isInstalled = $true
+                $paths += $chromeExe
+                try {
+                    $version = (Get-ItemProperty $chromeExe).VersionInfo.ProductVersion
+                } catch { $version = "Unknown" }
+            } elseif (Test-Path $chromeExe86) {
+                $isInstalled = $true
+                $paths += $chromeExe86
+                try {
+                    $version = (Get-ItemProperty $chromeExe86).VersionInfo.ProductVersion
+                } catch { $version = "Unknown" }
+            }
+        }
+        "Brave" {
+            $braveExe = "${env:ProgramFiles}\BraveSoftware\Brave-Browser\Application\brave.exe"
+            $braveExe86 = "${env:ProgramFiles(x86)}\BraveSoftware\Brave-Browser\Application\brave.exe"
+            if (Test-Path $braveExe) {
+                $isInstalled = $true
+                $paths += $braveExe
+                try {
+                    $version = (Get-ItemProperty $braveExe).VersionInfo.ProductVersion
+                } catch { $version = "Unknown" }
+            } elseif (Test-Path $braveExe86) {
+                $isInstalled = $true
+                $paths += $braveExe86
+                try {
+                    $version = (Get-ItemProperty $braveExe86).VersionInfo.ProductVersion
+                } catch { $version = "Unknown" }
+            }
+        }
+    }
+    
+    return @{
+        IsInstalled = $isInstalled
+        Version = $version
+        Paths = $paths
+        Status = if ($isInstalled) { "Installed" } else { "Not Installed" }
+    }
+}
 
 Write-Host "Web Browsers Installation Script" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Green
 
-# Function to check if application is installed
-function Test-AppInstalled {
-    param([string]$AppName)
-    $installed = Get-WmiObject -Class Win32_Product | Where-Object { $_.Name -like "*$AppName*" }
-    return $installed -ne $null
+# Handle verification-only mode
+if ($VerifyOnly) {
+    Write-Host "Verifying browser installations..." -ForegroundColor Yellow
+    
+    if ($Chrome) {
+        $chromeResult = Test-AppInstalled -AppName "Chrome" -Detailed:$Detailed
+        if ($chromeResult.IsInstalled) {
+            Write-Host "[OK] Google Chrome is installed" -ForegroundColor Green
+            Write-Host "Version: $($chromeResult.Version)" -ForegroundColor Cyan
+            if ($Detailed -and $chromeResult.Paths) {
+                Write-Host "Installation Path(s):" -ForegroundColor Cyan
+                $chromeResult.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+            }
+        } else {
+            Write-Host "[ERROR] Google Chrome is not installed" -ForegroundColor Red
+        }
+    }
+    
+    if ($Brave) {
+        $braveResult = Test-AppInstalled -AppName "Brave" -Detailed:$Detailed
+        if ($braveResult.IsInstalled) {
+            Write-Host "[OK] Brave Browser is installed" -ForegroundColor Green
+            Write-Host "Version: $($braveResult.Version)" -ForegroundColor Cyan
+            if ($Detailed -and $braveResult.Paths) {
+                Write-Host "Installation Path(s):" -ForegroundColor Cyan
+                $braveResult.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+            }
+        } else {
+            Write-Host "[ERROR] Brave Browser is not installed" -ForegroundColor Red
+        }
+    }
+    exit 0
 }
 
 # Install Google Chrome
 if ($Chrome) {
     Write-Host "`nInstalling Google Chrome..." -ForegroundColor Yellow
     
-    $chromeInstalled = Test-AppInstalled "Chrome"
-    if ($chromeInstalled -and -not $Force) {
-        Write-Host "Google Chrome is already installed. Use -Force to reinstall." -ForegroundColor Cyan
+    $chromeVerification = Test-AppInstalled -AppName "Chrome" -Detailed:$Detailed
+    if ($chromeVerification.IsInstalled -and -not $Force) {
+        Write-Host "Google Chrome is already installed: $($chromeVerification.Version)" -ForegroundColor Yellow
+        if ($Detailed -and $chromeVerification.Paths) {
+            Write-Host "Installation Path(s):" -ForegroundColor Cyan
+            $chromeVerification.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+        }
+        Write-Host "Use -Force to reinstall." -ForegroundColor Cyan
     } else {
         try {
             $chromeUrl = "https://dl.google.com/chrome/install/chrome_installer.exe"
@@ -41,7 +152,22 @@ if ($Chrome) {
                 Start-Process -FilePath $chromePath -ArgumentList "/install" -Wait
             }
             
-            Write-Host "Google Chrome installed successfully!" -ForegroundColor Green
+            # Verify installation using enhanced verification
+            Write-Host "Verifying Chrome installation..." -ForegroundColor Yellow
+            Start-Sleep -Seconds 3
+            $postInstallVerification = Test-AppInstalled -AppName "Chrome" -Detailed:$Detailed
+            
+            if ($postInstallVerification.IsInstalled) {
+                Write-Host "[OK] Google Chrome installation verified successfully!" -ForegroundColor Green
+                Write-Host "Version: $($postInstallVerification.Version)" -ForegroundColor Cyan
+                if ($Detailed -and $postInstallVerification.Paths) {
+                    Write-Host "Installation Path(s):" -ForegroundColor Cyan
+                    $postInstallVerification.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+                }
+            } else {
+                Write-Host "[WARNING] Chrome installation verification failed." -ForegroundColor Yellow
+            }
+            
             Remove-Item $chromePath -Force -ErrorAction SilentlyContinue
         } catch {
             Write-Host "Failed to install Google Chrome: $($_.Exception.Message)" -ForegroundColor Red
@@ -53,9 +179,14 @@ if ($Chrome) {
 if ($Brave) {
     Write-Host "`nInstalling Brave Browser..." -ForegroundColor Yellow
     
-    $braveInstalled = Test-AppInstalled "Brave"
-    if ($braveInstalled -and -not $Force) {
-        Write-Host "Brave Browser is already installed. Use -Force to reinstall." -ForegroundColor Cyan
+    $braveVerification = Test-AppInstalled -AppName "Brave" -Detailed:$Detailed
+    if ($braveVerification.IsInstalled -and -not $Force) {
+        Write-Host "Brave Browser is already installed: $($braveVerification.Version)" -ForegroundColor Yellow
+        if ($Detailed -and $braveVerification.Paths) {
+            Write-Host "Installation Path(s):" -ForegroundColor Cyan
+            $braveVerification.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+        }
+        Write-Host "Use -Force to reinstall." -ForegroundColor Cyan
     } else {
         try {
             # Get latest Brave download URL
@@ -81,7 +212,21 @@ if ($Brave) {
                 Start-Process -FilePath $bravePath -ArgumentList "--install" -Wait
             }
             
-            Write-Host "Brave Browser installed successfully!" -ForegroundColor Green
+            # Verify installation using enhanced verification
+            Write-Host "Verifying Brave installation..." -ForegroundColor Yellow
+            Start-Sleep -Seconds 3
+            $postInstallVerification = Test-AppInstalled -AppName "Brave" -Detailed:$Detailed
+            
+            if ($postInstallVerification.IsInstalled) {
+                Write-Host "[OK] Brave Browser installation verified successfully!" -ForegroundColor Green
+                Write-Host "Version: $($postInstallVerification.Version)" -ForegroundColor Cyan
+                if ($Detailed -and $postInstallVerification.Paths) {
+                    Write-Host "Installation Path(s):" -ForegroundColor Cyan
+                    $postInstallVerification.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+                }
+            } else {
+                Write-Host "[WARNING] Brave installation verification failed." -ForegroundColor Yellow
+            }
             Remove-Item $bravePath -Force -ErrorAction SilentlyContinue
         } catch {
             Write-Host "Failed to install Brave Browser: $($_.Exception.Message)" -ForegroundColor Red

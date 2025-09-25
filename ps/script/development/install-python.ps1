@@ -1,23 +1,107 @@
 # Install Python and pip
 # This script downloads and installs Python with pip package manager
+# Enhanced with comprehensive software verification system
+
+# Import the software verification module
+$modulePath = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) "modules\SoftwareVerification.psm1"
+if (Test-Path $modulePath) {
+    Import-Module $modulePath -Force
+} else {
+    Write-Warning "Software verification module not found. Using basic verification."
+}
 
 param(
     [string]$Version = "latest",
     [switch]$Silent = $false,
     [switch]$Force = $false,
     [switch]$AddToPath = $true,
-    [switch]$InstallPipTools = $true
+    [switch]$InstallPipTools = $true,
+    [switch]$VerifyOnly = $false,
+    [switch]$Detailed = $false
 )
+
+function Test-PythonInstallation {
+    <#
+    .SYNOPSIS
+    Enhanced function to verify Python installation with detailed information.
+    
+    .DESCRIPTION
+    Uses the SoftwareVerification module for comprehensive verification, falls back to basic checks if unavailable.
+    #>
+    param(
+        [switch]$Detailed
+    )
+    
+    # Try to use the verification module first
+    if (Get-Command Test-PredefinedSoftware -ErrorAction SilentlyContinue) {
+        try {
+            $result = Test-PredefinedSoftware -SoftwareName "Python" -Detailed:$Detailed
+            return $result
+        } catch {
+            Write-Warning "Verification module failed for Python. Using fallback method."
+        }
+    }
+    
+    # Fallback to basic verification
+    $isInstalled = $false
+    $version = "Unknown"
+    $paths = @()
+    
+    $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    $pipCommand = Get-Command pip -ErrorAction SilentlyContinue
+    
+    if ($pythonCommand -and $pipCommand) {
+        $isInstalled = $true
+        $paths += $pythonCommand.Source
+        $paths += $pipCommand.Source
+        try {
+            $pythonVersion = & python --version 2>$null
+            $pipVersion = & pip --version 2>$null
+            if ($pythonVersion -and $pipVersion) {
+                $version = "$pythonVersion, pip: $($pipVersion -split ' ' | Select-Object -First 2 -Join ' ')"
+            }
+        } catch {
+            $version = "Unknown"
+        }
+    }
+    
+    return @{
+        IsInstalled = $isInstalled
+        Version = $version
+        Paths = $paths
+        Status = if ($isInstalled) { "Installed" } else { "Not Installed" }
+    }
+}
 
 Write-Host "Python and pip Installation Script" -ForegroundColor Green
 Write-Host "==================================" -ForegroundColor Green
 
+# Handle verification-only mode
+if ($VerifyOnly) {
+    Write-Host "Verifying Python installation..." -ForegroundColor Yellow
+    $verificationResult = Test-PythonInstallation -Detailed:$Detailed
+    
+    if ($verificationResult.IsInstalled) {
+        Write-Host "[OK] Python is installed" -ForegroundColor Green
+        Write-Host "Version: $($verificationResult.Version)" -ForegroundColor Cyan
+        if ($Detailed -and $verificationResult.Paths) {
+            Write-Host "Installation Path(s):" -ForegroundColor Cyan
+            $verificationResult.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+        }
+    } else {
+        Write-Host "[ERROR] Python is not installed" -ForegroundColor Red
+    }
+    exit 0
+}
+
 # Check if Python is already installed
-$pythonInstalled = Get-Command python -ErrorAction SilentlyContinue
-if ($pythonInstalled -and -not $Force) {
-    Write-Host "Python is already installed:" -ForegroundColor Yellow
-    python --version
-    pip --version
+$pythonVerification = Test-PythonInstallation -Detailed:$Detailed
+if ($pythonVerification.IsInstalled -and -not $Force) {
+    Write-Host "Python is already installed: $($pythonVerification.Version)" -ForegroundColor Yellow
+    if ($Detailed -and $pythonVerification.Paths) {
+        Write-Host "Installation Path(s):" -ForegroundColor Cyan
+        $pythonVerification.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+    }
     Write-Host "Use -Force to reinstall." -ForegroundColor Cyan
     
     # Skip to pip tools installation if Python exists
@@ -104,15 +188,19 @@ if ($pythonInstalled -and -not $Force) {
         # Wait a moment for installation to complete
         Start-Sleep -Seconds 5
         
-        # Verify installation
+        # Verify installation using enhanced verification
         Write-Host "Verifying Python installation..." -ForegroundColor Yellow
-        try {
-            $pythonVersion = python --version
-            $pipVersion = pip --version
-            Write-Host "Python: $pythonVersion" -ForegroundColor Green
-            Write-Host "pip: $pipVersion" -ForegroundColor Green
-        } catch {
-            Write-Host "Python installation verification failed. You may need to restart your terminal." -ForegroundColor Yellow
+        $postInstallVerification = Test-PythonInstallation -Detailed:$Detailed
+        
+        if ($postInstallVerification.IsInstalled) {
+            Write-Host "[OK] Python installation verified successfully!" -ForegroundColor Green
+            Write-Host "Version: $($postInstallVerification.Version)" -ForegroundColor Cyan
+            if ($Detailed -and $postInstallVerification.Paths) {
+                Write-Host "Installation Path(s):" -ForegroundColor Cyan
+                $postInstallVerification.Paths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+            }
+        } else {
+            Write-Host "[WARNING] Python installation verification failed. You may need to restart your terminal." -ForegroundColor Yellow
             Write-Host "Try using 'py' command instead of 'python' if PATH wasn't updated." -ForegroundColor Cyan
         }
         
