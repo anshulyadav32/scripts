@@ -58,7 +58,7 @@ function Show-ChocolateyUsageInfo {
     Write-Host "`nUseful Chocolatey commands:" -ForegroundColor Yellow
     Write-Host "  choco search <package>     - Search for packages"
     Write-Host "  choco install <package>    - Install a package"
-    Write-Host "  choco list --local-only    - List installed packages"
+    Write-Host "  choco list                 - List installed packages"
     Write-Host "  choco upgrade all          - Update all packages"
     Write-Host "  choco uninstall <package>  - Uninstall a package"
     Write-Host "  choco info <package>       - Get package information"
@@ -83,7 +83,12 @@ function Refresh-EnvironmentVariables {
     try {
         Write-Host "Refreshing environment variables..." -ForegroundColor Cyan
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-        refreshenv
+        # Try to use refreshenv if available, otherwise just update PATH
+        if (Get-Command refreshenv -ErrorAction SilentlyContinue) {
+            refreshenv
+        } else {
+            Write-Host "Environment variables updated in current session." -ForegroundColor Green
+        }
     } catch {
         Write-Host "Could not refresh environment variables automatically. You may need to restart your terminal." -ForegroundColor Yellow
     }

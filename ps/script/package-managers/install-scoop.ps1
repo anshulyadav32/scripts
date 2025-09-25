@@ -30,16 +30,35 @@ function Install-ScoopPackageManager {
     Downloads and installs Scoop package manager.
     
     .DESCRIPTION
-    Downloads the Scoop installation script and executes it.
+    Downloads the Scoop installation script and executes it with admin bypass.
     Returns true if installation succeeds, false otherwise.
     #>
     try {
         Write-Host "Downloading and installing Scoop..." -ForegroundColor Cyan
-        Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+        
+        # Download the installer first
+        $installerPath = "$env:TEMP\install-scoop.ps1"
+        Invoke-WebRequest -Uri "https://get.scoop.sh" -OutFile $installerPath
+        
+        # Run with -RunAsAdmin flag to bypass admin restrictions
+        & $installerPath -RunAsAdmin
+        
+        # Clean up
+        Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+        
         return $true
     } catch {
         Write-Host "Error installing Scoop: $($_.Exception.Message)" -ForegroundColor Red
-        return $false
+        
+        # Try alternative method
+        try {
+            Write-Host "Trying alternative installation method..." -ForegroundColor Yellow
+            Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+            return $true
+        } catch {
+            Write-Host "Alternative method also failed: $($_.Exception.Message)" -ForegroundColor Red
+            return $false
+        }
     }
 }
 
@@ -90,13 +109,16 @@ function Install-Scoop {
     if (Install-ScoopPackageManager) {
         Write-Host "Scoop installation completed successfully!" -ForegroundColor Green
         
+        # Refresh environment variables
+        $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+        
         # Verify installation
         if (Test-ScoopInstalled) {
             Show-ScoopUsageInfo
             Write-Host "`nScoop installation process completed!" -ForegroundColor Green
             return $true
         } else {
-            Write-Host "Installation verification failed. Please check manually." -ForegroundColor Red
+            Write-Host "Installation verification failed. Please restart your terminal and try 'scoop --version'." -ForegroundColor Red
             return $false
         }
     } else {
