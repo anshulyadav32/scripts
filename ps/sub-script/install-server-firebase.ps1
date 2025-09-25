@@ -108,7 +108,7 @@ $script:ServerRegistry = @{
         Dependencies = @()
         InstallScript = "install-nodejs-lts.ps1"
         VerificationCommand = "node --version"
-        Icon = "🟢"
+        Icon = "[NODE]"
     }
     'postgresql' = @{
         Name = "PostgreSQL"
@@ -118,7 +118,7 @@ $script:ServerRegistry = @{
         Dependencies = @()
         InstallScript = "install-postgresql.ps1"
         VerificationCommand = "psql --version"
-        Icon = "🐘"
+        Icon = "[PSQL]"
     }
     'python' = @{
         Name = "Python 3.13"
@@ -128,7 +128,7 @@ $script:ServerRegistry = @{
         Dependencies = @()
         InstallScript = "install-python313.ps1"
         VerificationCommand = "python --version"
-        Icon = "🐍"
+        Icon = "[PY]"
     }
     'git' = @{
         Name = "Git & GitHub CLI"
@@ -138,7 +138,7 @@ $script:ServerRegistry = @{
         Dependencies = @()
         InstallScript = "install-git-github.ps1"
         VerificationCommand = "git --version"
-        Icon = "📝"
+        Icon = "[GIT]"
     }
     'xampp' = @{
         Name = "XAMPP Stack"
@@ -148,7 +148,7 @@ $script:ServerRegistry = @{
         Dependencies = @()
         InstallScript = "install-xampp.ps1"
         VerificationCommand = "php --version"
-        Icon = "🌐"
+        Icon = "[WEB]"
     }
     'serverstack' = @{
         Name = "Complete Server Stack"
