@@ -19,14 +19,14 @@ function Show-ServerMainMenu {
     #>
     
     $menuItems = @(
-        (New-FirebaseMenuItem -Name "Install All Server Components" -Description "Install complete server stack (Node.js, PostgreSQL, Python, Git, XAMPP)" -Key "install_all" -Icon "🚀" -Type "action"),
-        (New-FirebaseMenuItem -Name "Select Components" -Description "Choose specific server components to install" -Key "select_components" -Icon "📦" -Type "action"),
-        (New-FirebaseMenuItem -Name "Verify Installation" -Description "Check which server components are already installed" -Key "verify_only" -Icon "✅" -Type "action"),
-        (New-FirebaseMenuItem -Name "Configuration Mode" -Description "Configure installed server components" -Key "configure" -Icon "⚙️" -Type "action"),
-        (New-FirebaseMenuItem -Name "Exit" -Description "Exit the server installer" -Key "exit" -Icon "🚪" -Type "action")
+        (New-FirebaseMenuItem -Name "Install All Server Components" -Description "Install complete server stack (Node.js, PostgreSQL, Python, Git, XAMPP)" -Action "install_all" -Icon "[ALL]"),
+        (New-FirebaseMenuItem -Name "Select Components" -Description "Choose specific server components to install" -Action "select_components" -Icon "[SELECT]"),
+        (New-FirebaseMenuItem -Name "Verify Installation" -Description "Check which server components are already installed" -Action "verify_only" -Icon "[CHECK]"),
+        (New-FirebaseMenuItem -Name "Configuration Mode" -Description "Configure installed server components" -Action "configure" -Icon "[CONFIG]"),
+        (New-FirebaseMenuItem -Name "Exit" -Description "Exit the server installer" -Action "exit" -Icon "[EXIT]")
     )
     
-    return Get-FirebaseMenuChoice -MenuItems $menuItems -Title "Server Installation Suite" -Question "What would you like to do?" -MenuType "Single"
+    return Show-FirebaseMenu -MenuItems $menuItems -Title "Server Installation Suite" -ShowIcons
 }
 
 function Show-ComponentSelectionMenu {
@@ -39,17 +39,17 @@ function Show-ComponentSelectionMenu {
     #>
     
     $menuItems = @(
-        (New-FirebaseMenuItem -Name "Node.js LTS" -Description "JavaScript runtime environment (Critical for web development)" -Key "nodejs" -Icon "🟢" -Type "selectable"),
-        (New-FirebaseMenuItem -Name "PostgreSQL" -Description "Advanced open-source relational database (Critical for data storage)" -Key "postgresql" -Icon "🐘" -Type "selectable"),
-        (New-FirebaseMenuItem -Name "Python 3.13" -Description "Python programming language and pip package manager" -Key "python" -Icon "🐍" -Type "selectable"),
-        (New-FirebaseMenuItem -Name "Git & GitHub CLI" -Description "Version control system and GitHub integration (Critical)" -Key "git" -Icon "📝" -Type "selectable"),
-        (New-FirebaseMenuItem -Name "XAMPP Stack" -Description "Apache, MySQL, PHP, and phpMyAdmin web development stack" -Key "xampp" -Icon "🌐" -Type "selectable"),
-        (New-FirebaseMenuItem -Name "Complete Server Stack" -Description "All components with optimized configuration" -Key "serverstack" -Icon "🏗️" -Type "selectable"),
-        (New-FirebaseMenuItem -Name "Install Selected" -Description "Install the selected components" -Key "install" -Icon "⚡" -Type "action"),
-        (New-FirebaseMenuItem -Name "Back to Main Menu" -Description "Return to the main menu" -Key "back" -Icon "⬅️" -Type "action")
+        (New-FirebaseMenuItem -Name "Node.js LTS" -Description "JavaScript runtime environment (Critical for web development)" -Action "nodejs" -Icon "[NODE]"),
+        (New-FirebaseMenuItem -Name "PostgreSQL" -Description "Advanced open-source relational database (Critical for data storage)" -Action "postgresql" -Icon "[PSQL]"),
+        (New-FirebaseMenuItem -Name "Python 3.13" -Description "Python programming language and pip package manager" -Action "python" -Icon "[PY]"),
+        (New-FirebaseMenuItem -Name "Git and GitHub CLI" -Description "Version control system and GitHub integration (Critical)" -Action "git" -Icon "[GIT]"),
+        (New-FirebaseMenuItem -Name "XAMPP Stack" -Description "Apache, MySQL, PHP, and phpMyAdmin web development stack" -Action "xampp" -Icon "[WEB]"),
+        (New-FirebaseMenuItem -Name "Complete Server Stack" -Description "All components with optimized configuration" -Action "serverstack" -Icon "[STACK]"),
+        (New-FirebaseMenuItem -Name "Install Selected" -Description "Install the selected components" -Action "install" -Icon "[INSTALL]"),
+        (New-FirebaseMenuItem -Name "Back to Main Menu" -Description "Return to the main menu" -Action "back" -Icon "[BACK]")
     )
     
-    return Get-FirebaseMenuChoice -MenuItems $menuItems -Title "Server Component Selection" -Question "Which components would you like to install?" -MenuType "MultiSelect" -AllowEmpty $false
+    return Show-FirebaseMultiSelect -MenuItems $menuItems -Title "Server Component Selection" -AllowSelectAll
 }
 
 function Show-ConfigurationMenu {
@@ -62,15 +62,15 @@ function Show-ConfigurationMenu {
     #>
     
     $menuItems = @(
-        (New-FirebaseMenuItem -Name "Configure PostgreSQL" -Description "Set up database users, permissions, and sample data" -Key "config_postgresql" -Icon "🐘" -Type "action"),
-        (New-FirebaseMenuItem -Name "Configure XAMPP" -Description "Set up virtual hosts, PHP settings, and security" -Key "config_xampp" -Icon "🌐" -Type "action"),
-        (New-FirebaseMenuItem -Name "Configure Node.js" -Description "Set up global packages and development environment" -Key "config_nodejs" -Icon "🟢" -Type "action"),
-        (New-FirebaseMenuItem -Name "Configure Git" -Description "Set up user credentials and SSH keys" -Key "config_git" -Icon "📝" -Type "action"),
-        (New-FirebaseMenuItem -Name "Environment Variables" -Description "Configure system PATH and environment variables" -Key "config_env" -Icon "🔧" -Type "action"),
-        (New-FirebaseMenuItem -Name "Back to Main Menu" -Description "Return to the main menu" -Key "back" -Icon "⬅️" -Type "action")
+        (New-FirebaseMenuItem -Name "Configure PostgreSQL" -Description "Set up database users, permissions, and sample data" -Action "config_postgresql" -Icon "[PSQL]"),
+        (New-FirebaseMenuItem -Name "Configure XAMPP" -Description "Set up virtual hosts, PHP settings, and security" -Action "config_xampp" -Icon "[WEB]"),
+        (New-FirebaseMenuItem -Name "Configure Node.js" -Description "Set up global packages and development environment" -Action "config_nodejs" -Icon "[NODE]"),
+        (New-FirebaseMenuItem -Name "Configure Git" -Description "Set up user credentials and SSH keys" -Action "config_git" -Icon "[GIT]"),
+        (New-FirebaseMenuItem -Name "Environment Variables" -Description "Configure system PATH and environment variables" -Action "config_env" -Icon "[ENV]"),
+        (New-FirebaseMenuItem -Name "Back to Main Menu" -Description "Return to the main menu" -Action "back" -Icon "[BACK]")
     )
     
-    return Get-FirebaseMenuChoice -MenuItems $menuItems -Title "Server Configuration" -Question "What would you like to configure?" -MenuType "Single"
+    return Show-FirebaseMenu -MenuItems $menuItems -Title "Server Configuration" -ShowIcons
 }
 
 function Show-VerificationMenu {
@@ -83,14 +83,14 @@ function Show-VerificationMenu {
     #>
     
     $menuItems = @(
-        (New-FirebaseMenuItem -Name "Quick Verification" -Description "Basic check for installed components" -Key "verify_quick" -Icon "⚡" -Type "action"),
-        (New-FirebaseMenuItem -Name "Detailed Verification" -Description "Comprehensive verification with version information" -Key "verify_detailed" -Icon "🔍" -Type "action"),
-        (New-FirebaseMenuItem -Name "Component Health Check" -Description "Test component functionality and connectivity" -Key "verify_health" -Icon "🏥" -Type "action"),
-        (New-FirebaseMenuItem -Name "Generate Report" -Description "Create detailed installation report" -Key "verify_report" -Icon "📊" -Type "action"),
-        (New-FirebaseMenuItem -Name "Back to Main Menu" -Description "Return to the main menu" -Key "back" -Icon "⬅️" -Type "action")
+        (New-FirebaseMenuItem -Name "Quick Verification" -Description "Basic check for installed components" -Action "verify_quick" -Icon "[QUICK]"),
+        (New-FirebaseMenuItem -Name "Detailed Verification" -Description "Comprehensive verification with version information" -Action "verify_detailed" -Icon "[DETAIL]"),
+        (New-FirebaseMenuItem -Name "Component Health Check" -Description "Test component functionality and connectivity" -Action "verify_health" -Icon "[HEALTH]"),
+        (New-FirebaseMenuItem -Name "Generate Report" -Description "Create detailed installation report" -Action "verify_report" -Icon "[REPORT]"),
+        (New-FirebaseMenuItem -Name "Back to Main Menu" -Description "Return to the main menu" -Action "back" -Icon "[BACK]")
     )
     
-    return Get-FirebaseMenuChoice -MenuItems $menuItems -Title "Installation Verification" -Question "How would you like to verify your installation?" -MenuType "Single"
+    return Show-FirebaseMenu -MenuItems $menuItems -Title "Installation Verification" -ShowIcons
 }
 
 function Show-InstallationProgressMenu {
@@ -126,20 +126,20 @@ function Show-InstallationProgressMenu {
     
     foreach ($component in $Components) {
         $status = "pending"
-        $icon = "⏳"
+        $icon = "[WAIT]"
         $color = "DarkGray"
         
         if ($CompletedComponents -contains $component) {
             $status = "completed"
-            $icon = "✅"
+            $icon = "[OK]"
             $color = "Green"
         } elseif ($FailedComponents -contains $component) {
             $status = "failed"
-            $icon = "❌"
+            $icon = "[FAIL]"
             $color = "Red"
         } elseif ($component -eq $CurrentComponent) {
             $status = "installing"
-            $icon = "🔄"
+            $icon = "[WORK]"
             $color = "Yellow"
         }
         
@@ -194,7 +194,7 @@ function Show-InstallationSummary {
     Show-FirebaseHeader -Title "Installation Complete" -Subtitle "Server installation summary"
     
     if ($CompletedComponents.Count -gt 0) {
-        Write-Host "✅ " -NoNewline -ForegroundColor Green
+        Write-Host "[OK] " -NoNewline -ForegroundColor Green
         Write-Host "Successfully Installed ($($CompletedComponents.Count)):" -ForegroundColor Green
         foreach ($component in $CompletedComponents) {
             Write-Host "   • $component" -ForegroundColor White
@@ -203,7 +203,7 @@ function Show-InstallationSummary {
     }
     
     if ($FailedComponents.Count -gt 0) {
-        Write-Host "❌ " -NoNewline -ForegroundColor Red
+        Write-Host "[FAIL] " -NoNewline -ForegroundColor Red
         Write-Host "Failed Installations ($($FailedComponents.Count)):" -ForegroundColor Red
         foreach ($component in $FailedComponents) {
             Write-Host "   • $($component.Name)" -ForegroundColor White
@@ -214,13 +214,13 @@ function Show-InstallationSummary {
         Write-Host ""
     }
     
-    Write-Host "⏱️ " -NoNewline -ForegroundColor Cyan
+    Write-Host "[TIME] " -NoNewline -ForegroundColor Cyan
     Write-Host "Total Duration: $Duration" -ForegroundColor White
     Write-Host ""
     
     # Show next steps
     if ($CompletedComponents.Count -gt 0) {
-        Write-Host "🎯 " -NoNewline -ForegroundColor Yellow
+        Write-Host "[NEXT] " -NoNewline -ForegroundColor Yellow
         Write-Host "Next Steps:" -ForegroundColor Yellow
         Write-Host "   • Restart your terminal to use new PATH variables" -ForegroundColor White
         Write-Host "   • Run verification to test component functionality" -ForegroundColor White
@@ -313,7 +313,7 @@ function Show-ComponentDetailsMenu {
     
     Show-FirebaseHeader -Title $details.Name -Subtitle $details.Description
     
-    Write-Host "📋 " -NoNewline -ForegroundColor Cyan
+    Write-Host "[INFO] " -NoNewline -ForegroundColor Cyan
     Write-Host "Component Details:" -ForegroundColor Cyan
     Write-Host "   Version: " -NoNewline -ForegroundColor DarkGray
     Write-Host $details.Version -ForegroundColor White
@@ -328,7 +328,7 @@ function Show-ComponentDetailsMenu {
     Write-Host ""
     
     if ($details.PostInstall.Count -gt 0) {
-        Write-Host "⚙️ " -NoNewline -ForegroundColor Yellow
+        Write-Host "[SETUP] " -NoNewline -ForegroundColor Yellow
         Write-Host "Post-Installation Steps:" -ForegroundColor Yellow
         foreach ($step in $details.PostInstall) {
             Write-Host "   • $step" -ForegroundColor White
@@ -336,7 +336,7 @@ function Show-ComponentDetailsMenu {
         Write-Host ""
     }
     
-    Write-Host "📁 " -NoNewline -ForegroundColor Magenta
+    Write-Host "[FILES] " -NoNewline -ForegroundColor Magenta
     Write-Host "Configuration Files:" -ForegroundColor Magenta
     foreach ($file in $details.ConfigFiles) {
         Write-Host "   • $file" -ForegroundColor White
@@ -344,12 +344,12 @@ function Show-ComponentDetailsMenu {
     Write-Host ""
     
     $menuItems = @(
-        (New-FirebaseMenuItem -Name "Install This Component" -Description "Install $($details.Name)" -Key "install" -Icon "⚡" -Type "action"),
-        (New-FirebaseMenuItem -Name "View Installation Script" -Description "Show the installation commands" -Key "view_script" -Icon "📜" -Type "action"),
-        (New-FirebaseMenuItem -Name "Back to Selection" -Description "Return to component selection" -Key "back" -Icon "⬅️" -Type "action")
+        (New-FirebaseMenuItem -Name "Install This Component" -Description "Install $($details.Name)" -Action "install" -Icon "[INSTALL]"),
+        (New-FirebaseMenuItem -Name "View Installation Script" -Description "Show the installation commands" -Action "view_script" -Icon "[SCRIPT]"),
+        (New-FirebaseMenuItem -Name "Back to Selection" -Description "Return to component selection" -Action "back" -Icon "[BACK]")
     )
     
-    return Get-FirebaseMenuChoice -MenuItems $menuItems -Title "Component Actions" -Question "What would you like to do with $($details.Name)?" -MenuType "Single"
+    return Show-FirebaseMenu -MenuItems $menuItems -Title "Component Actions" -ShowIcons
 }
 
 # Export module functions

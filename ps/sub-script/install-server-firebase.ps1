@@ -426,9 +426,9 @@ function Test-ComponentInstallation {
     $component = $script:ServerRegistry[$ComponentKey]
     
     # Use SoftwareVerification module if available
-    if (Get-Command Test-SoftwareInstallation -ErrorAction SilentlyContinue) {
+    if (Get-Command Test-PredefinedSoftware -ErrorAction SilentlyContinue) {
         try {
-            $result = Test-SoftwareInstallation -SoftwareName $ComponentKey
+            $result = Test-PredefinedSoftware -SoftwareName $ComponentKey
             return $result
         } catch {
             Write-InstallLog "SoftwareVerification failed for $ComponentKey, using fallback" -Level 'Debug'

@@ -8,9 +8,9 @@
     This module provides Firebase CLI-style interactive menus with:
     - Arrow key navigation
     - Visual selection indicators
-    - Progress displays
-    - Styled headers and formatting
     - Multi-select capabilities
+    - Progress displays
+    - Styled headers and confirmations
     
 .NOTES
     Author: Server Installation System
@@ -18,46 +18,39 @@
     Compatible with PowerShell 5.1+
 #>
 
-# Module variables
+# Define Firebase-style color scheme
 $script:FirebaseColors = @{
-    Primary = 'Cyan'
+    Primary = 'Yellow'
     Secondary = 'DarkGray'
     Success = 'Green'
-    Warning = 'Yellow'
     Error = 'Red'
-    Info = 'White'
+    Warning = 'Yellow'
+    Info = 'Cyan'
     Accent = 'Magenta'
 }
 
 function Show-FirebaseHeader {
     <#
     .SYNOPSIS
-    Displays a Firebase-style header with title and subtitle.
+    Displays a Firebase-style header with title and optional subtitle.
     
     .PARAMETER Title
     Main title text
     
     .PARAMETER Subtitle
     Optional subtitle text
-    
-    .PARAMETER ClearScreen
-    Whether to clear the screen before showing header
     #>
     param(
         [Parameter(Mandatory)]
         [string]$Title,
         
-        [string]$Subtitle = "",
-        
-        [switch]$ClearScreen
+        [string]$Subtitle = ""
     )
     
-    if ($ClearScreen) {
-        Clear-Host
-    }
+    Clear-Host
     
-    Write-Host ""
-    Write-Host "🔥 " -NoNewline -ForegroundColor $script:FirebaseColors.Primary
+    # Firebase-style header
+    Write-Host "[FIRE] " -NoNewline -ForegroundColor $script:FirebaseColors.Primary
     Write-Host $Title -ForegroundColor $script:FirebaseColors.Primary
     
     if ($Subtitle) {
@@ -70,22 +63,22 @@ function Show-FirebaseHeader {
 function Show-FirebaseMenu {
     <#
     .SYNOPSIS
-    Displays a Firebase-style menu with arrow key navigation.
+    Displays a Firebase-style interactive menu with arrow key navigation.
     
     .PARAMETER MenuItems
-    Array of menu items (strings or objects with Name and Description properties)
+    Array of menu items created with New-FirebaseMenuItem
     
     .PARAMETER Title
     Menu title
     
     .PARAMETER Subtitle
-    Menu subtitle
+    Optional subtitle
     
     .PARAMETER ShowIcons
-    Whether to show icons for menu items
+    Whether to display icons
     
     .PARAMETER AllowCancel
-    Whether to allow cancellation with Escape key
+    Whether ESC key cancels the menu
     #>
     param(
         [Parameter(Mandatory)]
@@ -104,47 +97,31 @@ function Show-FirebaseMenu {
     $maxIndex = $MenuItems.Count - 1
     
     do {
-        Clear-Host
         Show-FirebaseHeader -Title $Title -Subtitle $Subtitle
         
+        # Display menu items
         for ($i = 0; $i -lt $MenuItems.Count; $i++) {
             $item = $MenuItems[$i]
-            $isSelected = $i -eq $selectedIndex
+            $prefix = if ($i -eq $selectedIndex) { "> " } else { "  " }
+            $color = if ($i -eq $selectedIndex) { $script:FirebaseColors.Primary } else { $script:FirebaseColors.Secondary }
             
-            # Handle different item types
-            if ($item -is [string]) {
-                $displayName = $item
-                $description = ""
-                $icon = if ($ShowIcons) { "•" } else { "" }
-            } else {
-                $displayName = $item.Name
-                $description = if ($item.Description) { $item.Description } else { "" }
-                $icon = if ($ShowIcons -and $item.Icon) { $item.Icon } else { if ($ShowIcons) { "•" } else { "" } }
+            Write-Host $prefix -NoNewline -ForegroundColor $color
+            
+            if ($ShowIcons -and $item.Icon) {
+                Write-Host "$($item.Icon) " -NoNewline -ForegroundColor $color
             }
             
-            if ($isSelected) {
-                Write-Host "  ❯ " -NoNewline -ForegroundColor $script:FirebaseColors.Primary
-                if ($icon) {
-                    Write-Host "$icon " -NoNewline -ForegroundColor $script:FirebaseColors.Primary
-                }
-                Write-Host $displayName -ForegroundColor $script:FirebaseColors.Info
-                if ($description) {
-                    Write-Host "    $description" -ForegroundColor $script:FirebaseColors.Secondary
-                }
+            Write-Host $item.Name -NoNewline -ForegroundColor $color
+            
+            if ($item.Description) {
+                Write-Host " - $($item.Description)" -ForegroundColor $script:FirebaseColors.Secondary
             } else {
-                Write-Host "    " -NoNewline
-                if ($icon) {
-                    Write-Host "$icon " -NoNewline -ForegroundColor $script:FirebaseColors.Secondary
-                }
-                Write-Host $displayName -ForegroundColor $script:FirebaseColors.Secondary
-                if ($description) {
-                    Write-Host "    $description" -ForegroundColor $script:FirebaseColors.Secondary
-                }
+                Write-Host ""
             }
         }
         
         Write-Host ""
-        Write-Host "Use ↑↓ arrows to navigate" -NoNewline -ForegroundColor $script:FirebaseColors.Secondary
+        Write-Host "Use arrows to navigate" -NoNewline -ForegroundColor $script:FirebaseColors.Secondary
         if ($AllowCancel) {
             Write-Host ", ESC to cancel" -NoNewline -ForegroundColor $script:FirebaseColors.Secondary
         }
@@ -163,7 +140,7 @@ function Show-FirebaseMenu {
                 return @{
                     SelectedIndex = $selectedIndex
                     SelectedItem = $MenuItems[$selectedIndex]
-                    Action = 'select'
+                    Action = $MenuItems[$selectedIndex].Action
                 }
             }
             27 { # Escape
@@ -191,117 +168,97 @@ function Show-FirebaseMultiSelect {
     Menu title
     
     .PARAMETER Subtitle
-    Menu subtitle
-    
-    .PARAMETER PreSelected
-    Array of pre-selected item indices
+    Optional subtitle
     
     .PARAMETER AllowSelectAll
-    Whether to show "Select All" option
+    Whether to show Select All/Deselect All options
     #>
     param(
         [Parameter(Mandatory)]
         [array]$MenuItems,
         
-        [string]$Title = "Select options",
+        [string]$Title = "Select items",
         
         [string]$Subtitle = "",
-        
-        [int[]]$PreSelected = @(),
         
         [switch]$AllowSelectAll
     )
     
-    $selectedIndex = 0
     $checkedItems = @{}
+    $selectedIndex = 0
     
-    # Initialize pre-selected items
-    foreach ($index in $PreSelected) {
-        if ($index -ge 0 -and $index -lt $MenuItems.Count) {
-            $checkedItems[$index] = $true
-        }
-    }
-    
+    # Create menu with action items if AllowSelectAll is enabled
     $menuItemsWithActions = @()
     if ($AllowSelectAll) {
         $menuItemsWithActions += @{ Name = "Select All"; Action = "select_all"; IsAction = $true }
         $menuItemsWithActions += @{ Name = "Deselect All"; Action = "deselect_all"; IsAction = $true }
-        $menuItemsWithActions += @{ Name = "---"; Action = "separator"; IsAction = $true }
+        $menuItemsWithActions += @{ Name = "Continue"; Action = "continue"; IsAction = $true }
     }
     
-    $menuItemsWithActions += $MenuItems
-    $menuItemsWithActions += @{ Name = "---"; Action = "separator"; IsAction = $true }
-    $menuItemsWithActions += @{ Name = "Continue with Selection"; Action = "continue"; IsAction = $true }
-    $menuItemsWithActions += @{ Name = "Cancel"; Action = "cancel"; IsAction = $true }
+    # Add regular menu items
+    for ($i = 0; $i -lt $MenuItems.Count; $i++) {
+        $menuItemsWithActions += @{
+            Name = $MenuItems[$i].Name
+            Description = $MenuItems[$i].Description
+            Action = $MenuItems[$i].Action
+            Icon = $MenuItems[$i].Icon
+            IsAction = $false
+            OriginalIndex = $i
+        }
+    }
     
     $maxIndex = $menuItemsWithActions.Count - 1
     
     do {
-        Clear-Host
         Show-FirebaseHeader -Title $Title -Subtitle $Subtitle
         
-        $selectedCount = $checkedItems.Values | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
-        Write-Host "Selected: $selectedCount items" -ForegroundColor $script:FirebaseColors.Info
-        Write-Host ""
-        
+        # Display items
         for ($i = 0; $i -lt $menuItemsWithActions.Count; $i++) {
             $item = $menuItemsWithActions[$i]
-            $isSelected = $i -eq $selectedIndex
+            $prefix = if ($i -eq $selectedIndex) { "> " } else { "  " }
+            $color = if ($i -eq $selectedIndex) { $script:FirebaseColors.Primary } else { $script:FirebaseColors.Secondary }
             
-            if ($item.Action -eq "separator") {
-                Write-Host "    ────────────────────────" -ForegroundColor $script:FirebaseColors.Secondary
-                continue
-            }
+            Write-Host $prefix -NoNewline -ForegroundColor $color
             
-            $displayName = if ($item -is [string]) { $item } else { $item.Name }
-            $isAction = $item.IsAction -eq $true
-            
-            if ($isSelected) {
-                Write-Host "  ❯ " -NoNewline -ForegroundColor $script:FirebaseColors.Primary
+            if ($item.IsAction) {
+                # Action items (Select All, etc.)
+                Write-Host "[$($item.Name)]" -ForegroundColor $color
             } else {
-                Write-Host "    " -NoNewline
-            }
-            
-            if (-not $isAction) {
-                # Regular menu item with checkbox
-                $itemIndex = $i - ($AllowSelectAll ? 3 : 0)  # Adjust for action items
-                $isChecked = $checkedItems[$itemIndex] -eq $true
+                # Regular selectable items
+                $itemIndex = $item.OriginalIndex
+                $checkbox = if ($checkedItems[$itemIndex] -eq $true) { "[X]" } else { "[ ]" }
+                Write-Host "$checkbox " -NoNewline -ForegroundColor $color
                 
-                if ($isChecked) {
-                    Write-Host "☑ " -NoNewline -ForegroundColor $script:FirebaseColors.Success
+                if ($item.Icon) {
+                    Write-Host "$($item.Icon) " -NoNewline -ForegroundColor $color
+                }
+                
+                Write-Host $item.Name -NoNewline -ForegroundColor $color
+                
+                if ($item.Description) {
+                    Write-Host " - $($item.Description)" -ForegroundColor $script:FirebaseColors.Secondary
                 } else {
-                    Write-Host "☐ " -NoNewline -ForegroundColor $script:FirebaseColors.Secondary
+                    Write-Host ""
                 }
             }
-            
-            $color = if ($isSelected) { $script:FirebaseColors.Info } else { $script:FirebaseColors.Secondary }
-            if ($isAction) {
-                $color = if ($isSelected) { $script:FirebaseColors.Primary } else { $script:FirebaseColors.Secondary }
-            }
-            
-            Write-Host $displayName -ForegroundColor $color
         }
         
         Write-Host ""
-        Write-Host "Use ↑↓ to navigate, SPACE to toggle, ENTER to select action" -ForegroundColor $script:FirebaseColors.Secondary
+        Write-Host "Use arrows to navigate, SPACE to toggle, ENTER to select action" -ForegroundColor $script:FirebaseColors.Secondary
         
         $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         
         switch ($key.VirtualKeyCode) {
             38 { # Up arrow
-                do {
-                    $selectedIndex = if ($selectedIndex -eq 0) { $maxIndex } else { $selectedIndex - 1 }
-                } while ($menuItemsWithActions[$selectedIndex].Action -eq "separator")
+                $selectedIndex = if ($selectedIndex -eq 0) { $maxIndex } else { $selectedIndex - 1 }
             }
             40 { # Down arrow
-                do {
-                    $selectedIndex = if ($selectedIndex -eq $maxIndex) { 0 } else { $selectedIndex + 1 }
-                } while ($menuItemsWithActions[$selectedIndex].Action -eq "separator")
+                $selectedIndex = if ($selectedIndex -eq $maxIndex) { 0 } else { $selectedIndex + 1 }
             }
             32 { # Space
                 $item = $menuItemsWithActions[$selectedIndex]
                 if (-not $item.IsAction) {
-                    $itemIndex = $selectedIndex - ($AllowSelectAll ? 3 : 0)
+                    $itemIndex = $item.OriginalIndex
                     $checkedItems[$itemIndex] = -not ($checkedItems[$itemIndex] -eq $true)
                 }
             }
@@ -320,35 +277,26 @@ function Show-FirebaseMultiSelect {
                         }
                         "continue" {
                             $selectedItems = @()
-                            for ($i = 0; $i -lt $MenuItems.Count; $i++) {
-                                if ($checkedItems[$i] -eq $true) {
-                                    $selectedItems += $MenuItems[$i]
+                            foreach ($key in $checkedItems.Keys) {
+                                if ($checkedItems[$key] -eq $true) {
+                                    $selectedItems += $MenuItems[$key]
                                 }
                             }
                             return @{
                                 SelectedItems = $selectedItems
-                                SelectedIndices = ($checkedItems.Keys | Where-Object { $checkedItems[$_] })
                                 Action = 'select'
-                            }
-                        }
-                        "cancel" {
-                            return @{
-                                SelectedItems = @()
-                                SelectedIndices = @()
-                                Action = 'cancel'
                             }
                         }
                     }
                 } else {
-                    # Toggle item
-                    $itemIndex = $selectedIndex - ($AllowSelectAll ? 3 : 0)
+                    # Toggle item selection
+                    $itemIndex = $item.OriginalIndex
                     $checkedItems[$itemIndex] = -not ($checkedItems[$itemIndex] -eq $true)
                 }
             }
             27 { # Escape
                 return @{
                     SelectedItems = @()
-                    SelectedIndices = @()
                     Action = 'cancel'
                 }
             }
@@ -359,68 +307,47 @@ function Show-FirebaseMultiSelect {
 function Show-FirebaseProgress {
     <#
     .SYNOPSIS
-    Displays Firebase-style progress information.
+    Displays a Firebase-style progress or status message.
     
     .PARAMETER Message
     Progress message
     
-    .PARAMETER Step
-    Current step number
-    
-    .PARAMETER TotalSteps
-    Total number of steps
-    
     .PARAMETER Status
-    Status type (info, success, warning, error)
-    
-    .PARAMETER ShowSpinner
-    Whether to show a spinner animation
+    Status type: 'info', 'success', 'error', 'warning'
     #>
     param(
         [Parameter(Mandatory)]
         [string]$Message,
         
-        [int]$Step = 0,
-        
-        [int]$TotalSteps = 0,
-        
-        [ValidateSet('info', 'success', 'warning', 'error')]
-        [string]$Status = 'info',
-        
-        [switch]$ShowSpinner
+        [ValidateSet('info', 'success', 'error', 'warning')]
+        [string]$Status = 'info'
     )
     
     $icon = switch ($Status) {
-        'info' { "ℹ" }
-        'success' { "✅" }
-        'warning' { "⚠" }
-        'error' { "❌" }
+        'success' { "[OK]" }
+        'error' { "[ERR]" }
+        'warning' { "[WARN]" }
+        default { "[INFO]" }
     }
     
     $color = switch ($Status) {
-        'info' { $script:FirebaseColors.Info }
         'success' { $script:FirebaseColors.Success }
-        'warning' { $script:FirebaseColors.Warning }
         'error' { $script:FirebaseColors.Error }
+        'warning' { $script:FirebaseColors.Warning }
+        default { $script:FirebaseColors.Info }
     }
     
-    if ($TotalSteps -gt 0) {
-        $progressText = "[$Step/$TotalSteps]"
-        Write-Host "$icon $progressText " -NoNewline -ForegroundColor $color
-    } else {
-        Write-Host "$icon " -NoNewline -ForegroundColor $color
-    }
-    
+    Write-Host "$icon " -NoNewline -ForegroundColor $color
     Write-Host $Message -ForegroundColor $color
 }
 
 function New-FirebaseMenuItem {
     <#
     .SYNOPSIS
-    Creates a new Firebase menu item object.
+    Creates a new Firebase-style menu item.
     
     .PARAMETER Name
-    Display name of the menu item
+    Display name
     
     .PARAMETER Description
     Optional description
@@ -432,7 +359,7 @@ function New-FirebaseMenuItem {
     Optional icon
     
     .PARAMETER Data
-    Additional data to associate with the item
+    Optional additional data
     #>
     param(
         [Parameter(Mandatory)]
@@ -493,12 +420,10 @@ function Show-FirebaseConfirmation {
     $selectedIndex = if ($DefaultYes) { 0 } else { 1 }
     
     do {
-        # Clear previous selection display
-        Write-Host "`r" -NoNewline
-        
+        # Display options
         for ($i = 0; $i -lt $options.Count; $i++) {
             if ($i -eq $selectedIndex) {
-                Write-Host "  ❯ " -NoNewline -ForegroundColor $script:FirebaseColors.Primary
+                Write-Host "  > " -NoNewline -ForegroundColor $script:FirebaseColors.Primary
                 Write-Host $options[$i].Name -ForegroundColor $script:FirebaseColors.Primary
             } else {
                 Write-Host "    " -NoNewline
@@ -507,14 +432,14 @@ function Show-FirebaseConfirmation {
         }
         
         Write-Host ""
-        Write-Host "Use ↑↓ arrows to navigate, ENTER to confirm" -ForegroundColor $script:FirebaseColors.Secondary
+        Write-Host "Use arrows to navigate, ENTER to confirm" -ForegroundColor $script:FirebaseColors.Secondary
         
         $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         
         switch ($key.VirtualKeyCode) {
             { $_ -in 38, 40 } { # Up/Down arrow
                 $selectedIndex = 1 - $selectedIndex  # Toggle between 0 and 1
-                # Move cursor up to redraw
+                # Clear and redraw
                 [Console]::SetCursorPosition(0, [Console]::CursorTop - 4)
             }
             13 { # Enter

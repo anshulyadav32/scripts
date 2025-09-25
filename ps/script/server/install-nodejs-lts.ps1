@@ -204,10 +204,10 @@ function Configure-NodeJS {
         npm config set registry https://registry.npmjs.org/
         
         # Set npm init defaults for faster project creation
-        Write-Host "Setting npm init defaults..." -ForegroundColor Yellow
-        npm config set init.author.name "Developer"
-        npm config set init.license "MIT"
-        npm config set init.version "1.0.0"
+        Write-Host "Setting npm init defaults..." -ForegroundColor Cyan
+    npm config set --init-author-name "Developer"
+    npm config set --init-license "MIT"
+    npm config set --init-version "1.0.0"
         
         # Update npm to latest version
         Write-Host "Updating npm to latest version..." -ForegroundColor Yellow
