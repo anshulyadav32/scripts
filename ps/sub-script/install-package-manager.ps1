@@ -232,16 +232,81 @@ function Get-PackageSelectionChoice {
     } while ($true)
 }
 
+function Show-InstallationSummary {
+    <#
+    .SYNOPSIS
+    Displays a detailed summary of installation results.
+    
+    .DESCRIPTION
+    Shows which package managers were successfully installed and which failed.
+    #>
+    param(
+        [hashtable]$Results
+    )
+    
+    Write-Host ""
+    Write-Host "     [FIRE] " -NoNewline -ForegroundColor Red
+    Write-Host "Installation Summary" -ForegroundColor White
+    Write-Host ""
+    
+    $successCount = 0
+    $failCount = 0
+    
+    foreach ($packageManager in $Results.Keys) {
+        $status = $Results[$packageManager]
+        if ($status) {
+            Write-Host "[OK] " -NoNewline -ForegroundColor Green
+            Write-Host "$packageManager " -NoNewline -ForegroundColor White
+            Write-Host "- Successfully installed" -ForegroundColor Green
+            $successCount++
+        } else {
+            Write-Host "[ERROR] " -NoNewline -ForegroundColor Red
+            Write-Host "$packageManager " -NoNewline -ForegroundColor White
+            Write-Host "- Installation failed or not available" -ForegroundColor Red
+            $failCount++
+        }
+    }
+    
+    Write-Host ""
+    Write-Host "[INFO] " -NoNewline -ForegroundColor Blue
+    Write-Host "Summary: " -NoNewline -ForegroundColor White
+    Write-Host "$successCount successful" -NoNewline -ForegroundColor Green
+    if ($failCount -gt 0) {
+        Write-Host ", $failCount failed" -NoNewline -ForegroundColor Red
+    }
+    Write-Host " installations" -ForegroundColor White
+    
+    if ($successCount -gt 0) {
+        Write-Host ""
+        Write-Host "[STAR] " -NoNewline -ForegroundColor Yellow
+        Write-Host "Next Steps:" -ForegroundColor White
+        Write-Host "  • Restart your terminal to use the new package manager(s)" -ForegroundColor Gray
+        Write-Host "  • Test installation with commands like:" -ForegroundColor Gray
+        
+        foreach ($packageManager in $Results.Keys) {
+            if ($Results[$packageManager]) {
+                switch ($packageManager) {
+                    "Chocolatey" { Write-Host "    - choco --version" -ForegroundColor DarkGray }
+                    "Scoop" { Write-Host "    - scoop --version" -ForegroundColor DarkGray }
+                    "WinGet" { Write-Host "    - winget --version" -ForegroundColor DarkGray }
+                }
+            }
+        }
+    }
+    
+    Write-Host ""
+}
+
 function Install-AllPackageManagers {
     <#
     .SYNOPSIS
     Installs all available package managers (Chocolatey, Scoop, and Winget).
     
     .DESCRIPTION
-    Convenience function that installs all three package managers in sequence.
+    Convenience function that installs all three package managers in sequence and returns installation results.
     #>
     $allPackages = @("choco", "scoop", "winget")
-    Install-SelectedPackageManager -SelectedPackages $allPackages
+    return Install-SelectedPackageManager -SelectedPackages $allPackages
 }
 
 function Install-SelectedPackageManager {
@@ -250,7 +315,7 @@ function Install-SelectedPackageManager {
     Installs the selected package manager(s).
     
     .DESCRIPTION
-    Executes the appropriate installation script based on user selection.
+    Executes the appropriate installation script based on user selection and tracks installation results.
     #>
     param(
         [array]$SelectedPackages
@@ -259,9 +324,12 @@ function Install-SelectedPackageManager {
     $scriptPath = Split-Path -Parent $PSScriptRoot
     $scriptFolder = Join-Path $scriptPath "script"
     
+    # Track installation results
+    $installationResults = @{}
+    
     if ($SelectedPackages.Count -eq 0) {
         Write-Host "`nNo package managers selected." -ForegroundColor Yellow
-        return
+        return $installationResults
     }
     
     Write-Host "`nInstalling selected package managers..." -ForegroundColor Green
@@ -270,35 +338,65 @@ function Install-SelectedPackageManager {
     Write-Host ""
     
     foreach ($package in $SelectedPackages) {
+        $packageName = ""
+        $installSuccess = $false
+        
         switch ($package) {
             "choco" {
+                $packageName = "Chocolatey"
                 Write-Host "`n--- Installing Chocolatey ---" -ForegroundColor Cyan
                 $chocolateyScript = Join-Path $scriptFolder "install-chocolatey.ps1"
                 if (Test-Path $chocolateyScript) {
-                    & $chocolateyScript
+                    try {
+                        & $chocolateyScript
+                        # Check if Chocolatey was installed successfully
+                        $installSuccess = (Get-Command choco -ErrorAction SilentlyContinue) -ne $null
+                    } catch {
+                        $installSuccess = $false
+                    }
                 } else {
                     Write-Host "Chocolatey installation script not found at: $chocolateyScript" -ForegroundColor Red
+                    $installSuccess = $false
                 }
             }
             "scoop" {
+                $packageName = "Scoop"
                 Write-Host "`n--- Installing Scoop ---" -ForegroundColor Cyan
                 $scoopScript = Join-Path $scriptFolder "install-scoop.ps1"
                 if (Test-Path $scoopScript) {
-                    & $scoopScript
+                    try {
+                        & $scoopScript
+                        # Check if Scoop was installed successfully
+                        $installSuccess = (Get-Command scoop -ErrorAction SilentlyContinue) -ne $null
+                    } catch {
+                        $installSuccess = $false
+                    }
                 } else {
                     Write-Host "Scoop installation script not found at: $scoopScript" -ForegroundColor Red
+                    $installSuccess = $false
                 }
             }
             "winget" {
+                $packageName = "WinGet"
                 Write-Host "`n--- Installing Winget ---" -ForegroundColor Cyan
                 $wingetScript = Join-Path $scriptFolder "install-winget.ps1"
                 if (Test-Path $wingetScript) {
-                    & $wingetScript
+                    try {
+                        & $wingetScript
+                        # Check if WinGet was installed successfully
+                        $installSuccess = (Get-Command winget -ErrorAction SilentlyContinue) -ne $null
+                    } catch {
+                        $installSuccess = $false
+                    }
                 } else {
                     Write-Host "Winget installation script not found at: $wingetScript" -ForegroundColor Red
+                    $installSuccess = $false
                 }
             }
         }
+        
+        # Store the result
+        $installationResults[$packageName] = $installSuccess
     }
     
     Write-Host "`nInstallation process completed!" -ForegroundColor Green
@@ -306,19 +404,11 @@ function Install-SelectedPackageManager {
     
     Write-Host "`nPress any key to continue..." -ForegroundColor Gray
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    
+    return $installationResults
 }
 
-function Install-AllPackageManagers {
-    <#
-    .SYNOPSIS
-    Installs all package managers.
-    
-    .DESCRIPTION
-    Installs Chocolatey, Scoop, and Winget.
-    #>
-    $allPackages = @("choco", "scoop", "winget")
-    Install-SelectedPackageManager -SelectedPackages $allPackages
-}
+
 
 function Start-PackageManagerInstaller {
     <#
@@ -351,7 +441,8 @@ function Start-PackageManagerInstaller {
         
         switch ($choice) {
             1 { # Install All
-                Install-AllPackageManagers
+                $installResults = Install-AllPackageManagers
+                Show-InstallationSummary -Results $installResults
             }
             2 { # Select Package Managers
                 do {
@@ -359,7 +450,8 @@ function Start-PackageManagerInstaller {
                     
                     if ($selectionResult.Action -eq "install") {
                         if ($selectionResult.Packages.Count -gt 0) {
-                            Install-SelectedPackageManager -SelectedPackages $selectionResult.Packages
+                            $installResults = Install-SelectedPackageManager -SelectedPackages $selectionResult.Packages
+                            Show-InstallationSummary -Results $installResults
                         } else {
                             Write-Host "`nNo package managers selected. Please select at least one package manager." -ForegroundColor Yellow
                             Write-Host "Press any key to continue..." -ForegroundColor Gray
@@ -380,18 +472,18 @@ function Start-PackageManagerInstaller {
             break
         }
         
-        # Firebase-style continuation prompt
+        # Auto-exit after installation (no prompt)
         Write-Host ""
         Write-Host "? " -NoNewline -ForegroundColor Green
         Write-Host "Would you like to install more package managers? " -NoNewline -ForegroundColor White
         Write-Host "(y/N): " -NoNewline -ForegroundColor DarkGray
-        $continue = Read-Host
-        if ($continue -notmatch '^[yY]') {
-            break
-        }
+        Write-Host "N" -ForegroundColor Yellow
+        Write-Host "Auto-exiting..." -ForegroundColor Cyan
+        Start-Sleep -Seconds 1
+        break
     } while ($true)
     
-    # Firebase-style goodbye message
+    # Firebase-style goodbye message with detailed results
     Clear-Host
     Write-Host ""
     Write-Host "     [FIRE] " -NoNewline -ForegroundColor Red
@@ -401,7 +493,9 @@ function Start-PackageManagerInstaller {
     Write-Host "Thank you for using the Package Manager Installer!" -ForegroundColor Green
     Write-Host ""
     Write-Host "[INFO] " -NoNewline -ForegroundColor Blue
-    Write-Host "Remember to restart your terminal to use the new package manager(s)." -ForegroundColor White
+    Write-Host "All package managers have been processed." -ForegroundColor White
+    Write-Host "[INFO] " -NoNewline -ForegroundColor Blue
+    Write-Host "Check the installation summary above for detailed results." -ForegroundColor White
     Write-Host ""
 }
 
