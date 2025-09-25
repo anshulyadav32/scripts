@@ -8,6 +8,8 @@ param(
     [switch]$SkipPHP = $false,
     [switch]$SkipCpp = $false,
     [switch]$SkipNodeJS = $false,
+    [switch]$SkipRESTTools = $false,
+    [switch]$SkipPostgreSQL = $false,
     [switch]$Force = $false
 )
 
@@ -367,6 +369,159 @@ function Install-NodeJS {
     }
 }
 
+function Install-RESTTools {
+    if ($SkipRESTTools) { return }
+    
+    Write-Host "`nInstalling REST API Testing Tools..." -ForegroundColor Cyan
+    
+    # Install HTTPie
+    Write-Host "Installing HTTPie..." -ForegroundColor Yellow
+    if (Test-CommandExists "http" -and -not $Force) {
+        Write-Host "HTTPie is already installed." -ForegroundColor Yellow
+    } else {
+        switch ($usePackageManager) {
+            "Chocolatey" { Install-ViaChocolatey "httpie" "HTTPie" }
+            "Scoop" { Install-ViaScoop "httpie" "HTTPie" }
+            "Winget" { Install-ViaWinget "HTTPie.HTTPie" "HTTPie" }
+            default {
+                Write-Host "Installing HTTPie via pip..." -ForegroundColor Yellow
+                try {
+                    python -m pip install httpie
+                    Write-Host "HTTPie installed via pip." -ForegroundColor Green
+                } catch {
+                    Write-Host "Could not install HTTPie. Python may not be available." -ForegroundColor Red
+                }
+            }
+        }
+    }
+    
+    # Install jq
+    Write-Host "Installing jq (JSON processor)..." -ForegroundColor Yellow
+    if (Test-CommandExists "jq" -and -not $Force) {
+        Write-Host "jq is already installed." -ForegroundColor Yellow
+    } else {
+        switch ($usePackageManager) {
+            "Chocolatey" { Install-ViaChocolatey "jq" "jq" }
+            "Scoop" { Install-ViaScoop "jq" "jq" }
+            "Winget" { Install-ViaWinget "jqlang.jq" "jq" }
+            default {
+                Write-Host "Installing jq manually..." -ForegroundColor Yellow
+                $jqUrl = "https://github.com/jqlang/jq/releases/latest/download/jq-win64.exe"
+                $jqDir = "$env:ProgramFiles\jq"
+                $jqPath = "$jqDir\jq.exe"
+                New-Item -Path $jqDir -ItemType Directory -Force
+                Invoke-WebRequest -Uri $jqUrl -OutFile $jqPath -UseBasicParsing
+                # Add to PATH
+                $currentPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+                if ($currentPath -notlike "*$jqDir*") {
+                    [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$jqDir", "Machine")
+                }
+            }
+        }
+    }
+    
+    # Install Postman
+    Write-Host "Installing Postman..." -ForegroundColor Yellow
+    switch ($usePackageManager) {
+        "Chocolatey" { Install-ViaChocolatey "postman" "Postman" }
+        "Scoop" { 
+            Install-ViaScoop "postman" "Postman" "extras"
+        }
+        "Winget" { Install-ViaWinget "Postman.Postman" "Postman" }
+        default {
+            Write-Host "Installing Postman manually..." -ForegroundColor Yellow
+            $postmanUrl = "https://dl.pstmn.io/download/latest/win64"
+            $postmanPath = "$env:TEMP\postman-installer.exe"
+            Invoke-WebRequest -Uri $postmanUrl -OutFile $postmanPath -UseBasicParsing
+            Start-Process -FilePath $postmanPath -ArgumentList "/S" -Wait
+            Remove-Item $postmanPath -Force
+        }
+    }
+    
+    # Install Insomnia
+    Write-Host "Installing Insomnia REST Client..." -ForegroundColor Yellow
+    switch ($usePackageManager) {
+        "Chocolatey" { Install-ViaChocolatey "insomnia-rest-api-client" "Insomnia" }
+        "Scoop" { Install-ViaScoop "insomnia" "Insomnia" "extras" }
+        "Winget" { Install-ViaWinget "Insomnia.Insomnia" "Insomnia" }
+        default {
+            Write-Host "Installing Insomnia manually..." -ForegroundColor Yellow
+            $insomniaUrl = "https://github.com/Kong/insomnia/releases/latest/download/Insomnia.Core-8.4.5.exe"
+            $insomniaPath = "$env:TEMP\insomnia-installer.exe"
+            try {
+                Invoke-WebRequest -Uri $insomniaUrl -OutFile $insomniaPath -UseBasicParsing
+                Start-Process -FilePath $insomniaPath -ArgumentList "/S" -Wait
+                Remove-Item $insomniaPath -Force
+            } catch {
+                Write-Host "Could not install Insomnia automatically. Please download from https://insomnia.rest/" -ForegroundColor Yellow
+            }
+        }
+    }
+}
+
+function Install-PostgreSQL {
+    if ($SkipPostgreSQL) { return }
+    
+    Write-Host "`nInstalling PostgreSQL Database..." -ForegroundColor Cyan
+    
+    if (Test-CommandExists "psql" -and -not $Force) {
+        Write-Host "PostgreSQL is already installed." -ForegroundColor Yellow
+        return
+    }
+    
+    switch ($usePackageManager) {
+        "Chocolatey" { 
+            Install-ViaChocolatey "postgresql" "PostgreSQL"
+            Install-ViaChocolatey "pgadmin4" "pgAdmin 4"
+        }
+        "Scoop" { 
+            Install-ViaScoop "postgresql" "PostgreSQL"
+        }
+        "Winget" { Install-ViaWinget "PostgreSQL.PostgreSQL" "PostgreSQL" }
+        default {
+            Write-Host "Installing PostgreSQL manually..." -ForegroundColor Yellow
+            $pgUrl = "https://get.enterprisedb.com/postgresql/postgresql-16.1-1-windows-x64.exe"
+            $pgPath = "$env:TEMP\postgresql-installer.exe"
+            Invoke-WebRequest -Uri $pgUrl -OutFile $pgPath -UseBasicParsing
+            
+            # Silent installation with default settings
+            $pgArgs = @(
+                "--mode", "unattended",
+                "--unattendedmodeui", "none",
+                "--superpassword", "postgres",
+                "--servicename", "postgresql",
+                "--serviceport", "5432",
+                "--locale", "en_US.UTF-8"
+            )
+            
+            Start-Process -FilePath $pgPath -ArgumentList $pgArgs -Wait
+            Remove-Item $pgPath -Force
+        }
+    }
+    
+    # Configure PostgreSQL
+    Write-Host "Configuring PostgreSQL..." -ForegroundColor Yellow
+    try {
+        # Add PostgreSQL to PATH
+        $pgPath = Get-ChildItem -Path "C:\Program Files\PostgreSQL\*\bin" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+        if ($pgPath) {
+            $currentPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+            if ($currentPath -notlike "*$pgPath*") {
+                [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$pgPath", "Machine")
+                $env:Path = "$env:Path;$pgPath"
+            }
+        }
+        
+        Write-Host "PostgreSQL configured with:" -ForegroundColor Green
+        Write-Host "  Username: postgres" -ForegroundColor White
+        Write-Host "  Password: postgres" -ForegroundColor White
+        Write-Host "  Port: 5432" -ForegroundColor White
+        Write-Host "  Connection: psql -U postgres -h localhost" -ForegroundColor White
+    } catch {
+        Write-Host "PostgreSQL installed but may need manual configuration." -ForegroundColor Yellow
+    }
+}
+
 # Main installation process
 Write-Host "`nStarting development tools installation..." -ForegroundColor Green
 
@@ -380,6 +535,10 @@ Install-CppTools
 Install-Python
 Install-PHP  
 Install-NodeJS
+
+# REST API Testing and Database tools
+Install-RESTTools
+Install-PostgreSQL
 
 # Refresh environment variables
 Write-Host "`nRefreshing environment variables..." -ForegroundColor Yellow
@@ -399,6 +558,9 @@ $tools = @{
     "Node.js" = "node --version"
     "npm" = "npm --version"
     "CMake" = "cmake --version"
+    "HTTPie" = "http --version"
+    "jq" = "jq --version"
+    "PostgreSQL" = "psql --version"
 }
 
 foreach ($tool in $tools.Keys) {
@@ -423,6 +585,8 @@ Write-Host "Core Tools: Git, cURL, Wget" -ForegroundColor White
 Write-Host "Languages: Python, PHP, Node.js, C++" -ForegroundColor White
 Write-Host "Package Managers: pip, Composer, npm" -ForegroundColor White
 Write-Host "Build Tools: CMake, Visual Studio Build Tools" -ForegroundColor White
+Write-Host "REST Testing: HTTPie, Postman, Insomnia, jq" -ForegroundColor White
+Write-Host "Database: PostgreSQL with pgAdmin" -ForegroundColor White
 
 Write-Host "`nQuick Commands:" -ForegroundColor Cyan
 Write-Host "  git --version       # Check Git version" -ForegroundColor White
@@ -430,11 +594,23 @@ Write-Host "  python --version    # Check Python version" -ForegroundColor White
 Write-Host "  php --version       # Check PHP version" -ForegroundColor White
 Write-Host "  node --version      # Check Node.js version" -ForegroundColor White
 Write-Host "  cmake --version     # Check CMake version" -ForegroundColor White
+Write-Host "  http --version      # Check HTTPie version" -ForegroundColor White
+Write-Host "  jq --version        # Check jq version" -ForegroundColor White
+Write-Host "  psql --version      # Check PostgreSQL version" -ForegroundColor White
 
 Write-Host "`nDevelopment Shortcuts:" -ForegroundColor Cyan
 Write-Host "  python -m http.server 8000    # Python HTTP server" -ForegroundColor White
 Write-Host "  php -S localhost:8000         # PHP development server" -ForegroundColor White
 Write-Host "  npx http-server -p 3000       # Node.js HTTP server" -ForegroundColor White
+
+Write-Host "`nREST API Testing:" -ForegroundColor Cyan
+Write-Host "  http GET localhost:3000/api/users              # HTTPie GET request" -ForegroundColor White
+Write-Host "  http POST localhost:3000/api/users name=John   # HTTPie POST request" -ForegroundColor White
+Write-Host "  curl -s localhost:3000/api/data | jq '.'       # cURL + jq for JSON" -ForegroundColor White
+
+Write-Host "`nDatabase Access:" -ForegroundColor Cyan
+Write-Host "  psql -U postgres -h localhost                  # Connect to PostgreSQL" -ForegroundColor White
+Write-Host "  pg_ctl -D \"C:\\Program Files\\PostgreSQL\\*\\data\" start  # Start PostgreSQL service" -ForegroundColor White
 
 Write-Host "`nScript Usage Examples:" -ForegroundColor Cyan
 Write-Host "  .\install-dev-tools-windows.ps1                    # Install all tools" -ForegroundColor White

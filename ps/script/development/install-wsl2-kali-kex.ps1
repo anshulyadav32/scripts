@@ -163,7 +163,28 @@ sudo apt install -y \
     php-json \
     php-mbstring \
     php-xml \
-    composer
+    composer \
+    postgresql \
+    postgresql-contrib \
+    postgresql-client
+
+# Install REST testing tools
+echo "Installing REST API testing tools..."
+sudo apt install -y \
+    httpie \
+    jq \
+    xmlstarlet
+
+# Install Postman (via snap)
+echo "Installing Postman for API testing..."
+sudo snap install postman
+
+# Install Insomnia REST client
+echo "Installing Insomnia REST client..."
+wget -O- https://updates.insomnia.rest/downloads/linux/latest | sudo apt-key add -
+echo "deb https://download.konghq.com/insomnia-ubuntu/ default all" | sudo tee -a /etc/apt/sources.list.d/insomnia.list
+sudo apt update
+sudo apt install -y insomnia
 
 # Install Node.js LTS via NodeSource repository
 echo "Installing Node.js LTS..."
@@ -198,6 +219,32 @@ sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
 echo "deb [arch=\$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
 sudo apt update
 sudo apt install -y gh
+
+# Configure PostgreSQL
+echo "Configuring PostgreSQL database..."
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+# Set PostgreSQL password for postgres user
+echo "Setting PostgreSQL password..."
+sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+
+# Create a database for development
+sudo -u postgres createdb ${Username}_dev
+
+# Allow local connections with password
+sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/*/main/postgresql.conf
+echo "host all all 127.0.0.1/32 md5" | sudo tee -a /etc/postgresql/*/main/pg_hba.conf
+echo "host all all ::1/128 md5" | sudo tee -a /etc/postgresql/*/main/pg_hba.conf
+
+# Restart PostgreSQL to apply changes
+sudo systemctl restart postgresql
+
+echo "PostgreSQL configured with:"
+echo "  Username: postgres"
+echo "  Password: postgres" 
+echo "  Database: ${Username}_dev"
+echo "  Connection: psql -h localhost -U postgres -d ${Username}_dev"
 
 # Configure development environment
 echo "Configuring development environment..."
@@ -256,6 +303,22 @@ alias ghauth="gh auth login"
 alias ghrepo="gh repo create"
 alias ghclone="gh repo clone"
 
+# REST API testing shortcuts
+alias api-test="http"
+alias api-get="http GET"
+alias api-post="http POST"
+alias api-put="http PUT"
+alias api-delete="http DELETE"
+alias json-pretty="jq '.'"
+alias json-keys="jq 'keys'"
+
+# PostgreSQL shortcuts
+alias pgstart="sudo systemctl start postgresql"
+alias pgstop="sudo systemctl stop postgresql"
+alias pgstatus="sudo systemctl status postgresql"
+alias pgconnect="psql -h localhost -U postgres -d ${Username}_dev"
+alias pgadmin="psql -h localhost -U postgres"
+
 # Kex desktop functions
 function kex-help() {
     echo "Kex Desktop Commands:"
@@ -286,10 +349,26 @@ function dev-help() {
     echo "  git                 # Git version control"
     echo "  code                # VS Code (code-oss)"
     echo ""
+    echo "REST API Testing:"
+    echo "  http                # HTTPie for API testing"
+    echo "  postman             # Postman GUI client"
+    echo "  insomnia            # Insomnia REST client"
+    echo "  jq                  # JSON processor"
+    echo ""
+    echo "Database:"
+    echo "  psql                # PostgreSQL client"
+    echo "  pgconnect           # Connect to dev database"
+    echo "  pgadmin             # PostgreSQL admin"
+    echo ""
     echo "Quick Servers:"
     echo "  serve-php           # PHP dev server on :8000"
     echo "  serve-python        # Python HTTP server on :8080"
     echo "  serve-node          # Node HTTP server on :3000"
+    echo ""
+    echo "API Testing Examples:"
+    echo "  http GET localhost:3000/api/users"
+    echo "  http POST localhost:3000/api/users name=John"
+    echo "  curl -s localhost:3000/api/data | jq '.'"
 }
 
 # Version check function
@@ -304,6 +383,14 @@ function dev-versions() {
     gcc --version 2>/dev/null | head -1 && echo "GCC: \$(gcc --version | head -1)" || echo "GCC: Not installed"
     git --version 2>/dev/null && echo "Git: \$(git --version)" || echo "Git: Not installed"
     gh --version 2>/dev/null | head -1 && echo "GitHub CLI: \$(gh --version | head -1)" || echo "GitHub CLI: Not installed"
+    echo ""
+    echo "REST Testing & Database Tools:"
+    echo "=============================="
+    http --version 2>/dev/null && echo "HTTPie: \$(http --version)" || echo "HTTPie: Not installed"
+    jq --version 2>/dev/null && echo "jq: \$(jq --version)" || echo "jq: Not installed"
+    psql --version 2>/dev/null && echo "PostgreSQL: \$(psql --version)" || echo "PostgreSQL: Not installed"
+    which postman 2>/dev/null && echo "Postman: Installed" || echo "Postman: Not installed"
+    which insomnia 2>/dev/null && echo "Insomnia: Installed" || echo "Insomnia: Not installed"
 }
 
 echo "Kali Linux WSL2 with Kex and Development Environment is ready!"
@@ -394,7 +481,8 @@ Write-Host "  Distribution: Kali Linux on WSL2" -ForegroundColor White
 Write-Host "  Username: $Username" -ForegroundColor White
 Write-Host "  Desktop Environment: Kex (Win-Kex)" -ForegroundColor White
 Write-Host "  Security Tools: Kali Linux toolkit installed" -ForegroundColor White
-Write-Host "  Development Tools: Node.js LTS, Python, C++, PHP, GitHub CLI" -ForegroundColor White
+Write-Host "  Development Tools: Node.js LTS, Python, C++, PHP, GitHub CLI, PostgreSQL" -ForegroundColor White
+Write-Host "  REST Testing: HTTPie, Postman, Insomnia, jq" -ForegroundColor White
 
 Write-Host "`nKex Desktop Commands:" -ForegroundColor Cyan
 Write-Host "  kex --win -s        # Start Kex in seamless mode (recommended)" -ForegroundColor White
@@ -414,6 +502,8 @@ Write-Host "  Python 3 with pip, virtualenv, common packages" -ForegroundColor W
 Write-Host "  C++ with GCC compiler and build tools" -ForegroundColor White
 Write-Host "  PHP with CLI and Composer package manager" -ForegroundColor White
 Write-Host "  GitHub CLI (gh) for repository management" -ForegroundColor White
+Write-Host "  PostgreSQL database (user: postgres, password: postgres)" -ForegroundColor White
+Write-Host "  REST API Testing: HTTPie, Postman, Insomnia, jq" -ForegroundColor White
 
 Write-Host "`nNext Steps:" -ForegroundColor Cyan
 Write-Host "  1. Run 'wsl -d kali-linux' to start Kali terminal" -ForegroundColor White

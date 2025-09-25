@@ -44,6 +44,104 @@ function Install-ChocolateyPackageManager {
     }
 }
 
+function Test-ChocolateyFunctionality {
+    <#
+    .SYNOPSIS
+    Tests Chocolatey functionality with basic commands.
+    
+    .DESCRIPTION
+    Runs comprehensive tests to verify Chocolatey is working properly.
+    Returns hashtable with test results and overall success status.
+    #>
+    Write-Host "Running Chocolatey functionality tests..." -ForegroundColor Cyan
+    
+    $results = @{
+        VersionCheck = $false
+        SearchTest = $false
+        ListTest = $false
+        OverallSuccess = $false
+    }
+    
+    # Test 1: Version check
+    Write-Host "  Testing version command..." -ForegroundColor Yellow
+    try {
+        $version = & choco --version 2>$null
+        if ($version) {
+            Write-Host "    ✓ Version: $version" -ForegroundColor Green
+            $results.VersionCheck = $true
+        }
+    } catch {
+        Write-Host "    ✗ Version check failed" -ForegroundColor Red
+    }
+    
+    # Test 2: Search functionality
+    Write-Host "  Testing search functionality..." -ForegroundColor Yellow
+    try {
+        $search = & choco search chocolatey --limit-output --exact 2>$null
+        if ($search) {
+            Write-Host "    ✓ Search works" -ForegroundColor Green
+            $results.SearchTest = $true
+        }
+    } catch {
+        Write-Host "    ✗ Search failed" -ForegroundColor Red
+    }
+    
+    # Test 3: List functionality
+    Write-Host "  Testing list functionality..." -ForegroundColor Yellow
+    try {
+        $list = & choco list --local-only --limit-output 2>$null
+        if ($list) {
+            Write-Host "    ✓ List works" -ForegroundColor Green
+            $results.ListTest = $true
+        }
+    } catch {
+        Write-Host "    ✗ List failed" -ForegroundColor Red
+    }
+    
+    $passedTests = ($results.VersionCheck + $results.SearchTest + $results.ListTest)
+    $results.OverallSuccess = ($passedTests -ge 2)
+    
+    Write-Host "  Tests passed: $passedTests/3" -ForegroundColor $(if ($results.OverallSuccess) { "Green" } else { "Yellow" })
+    
+    return $results
+}
+
+function Update-Chocolatey {
+    <#
+    .SYNOPSIS
+    Updates Chocolatey to the latest version.
+    
+    .DESCRIPTION
+    Attempts to update Chocolatey using choco upgrade.
+    Returns true if update succeeds, false otherwise.
+    #>
+    Write-Host "Updating Chocolatey..." -ForegroundColor Cyan
+    
+    if (-not (Test-ChocolateyInstalled)) {
+        Write-Host "Chocolatey is not installed. Cannot update." -ForegroundColor Red
+        return $false
+    }
+    
+    try {
+        Write-Host "Attempting to update Chocolatey..." -ForegroundColor Yellow
+        & choco upgrade chocolatey -y 2>$null
+        
+        # Verify the update
+        if (Test-ChocolateyInstalled) {
+            $version = & choco --version 2>$null
+            Write-Host "✓ Chocolatey update completed successfully!" -ForegroundColor Green
+            Write-Host "  Current version: $version" -ForegroundColor Gray
+            return $true
+        } else {
+            throw "Update verification failed"
+        }
+    } catch {
+        Write-Host "✗ Chocolatey update failed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "Try running: choco upgrade chocolatey" -ForegroundColor Yellow
+        return $false
+    }
+}
+
 function Show-ChocolateyUsageInfo {
     <#
     .SYNOPSIS
@@ -125,6 +223,10 @@ function Install-Chocolatey {
         # Verify installation
         if (Test-ChocolateyInstalled) {
             Show-ChocolateyUsageInfo
+            
+            # Run functionality tests
+            Test-ChocolateyFunctionality
+            
             Write-Host "`nChocolatey installation process completed!" -ForegroundColor Green
             return $true
         } else {
@@ -137,6 +239,7 @@ function Install-Chocolatey {
 }
 
 # Execute the main installation function
-if (-not (Install-Chocolatey)) {
+$installResult = Install-Chocolatey
+if (-not $installResult) {
     exit 1
 }

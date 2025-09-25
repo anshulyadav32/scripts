@@ -12,17 +12,12 @@ function Write-Header {
 
 function Write-Success {
     param([string]$Message)
-    Write-Host "✓ $Message" -ForegroundColor Green
+    Write-Host "* $Message" -ForegroundColor Green
 }
 
 function Write-Error {
     param([string]$Message)
-    Write-Host "✗ $Message" -ForegroundColor Red
-}
-
-function Write-Info {
-    param([string]$Message)
-    Write-Host "ℹ $Message" -ForegroundColor Blue
+    Write-Host "X $Message" -ForegroundColor Red
 }
 
 # Test package manager function
@@ -75,13 +70,13 @@ function Start-PackageManagerVerification {
     # Test all package managers
     $results = @()
 
-    & $function:Write-Info "Testing Chocolatey..."
+    Write-Host "i Testing Chocolatey..." -ForegroundColor Blue
     $results += Test-PackageManager -Name "Chocolatey" -Command "choco"
 
-    & $function:Write-Info "Testing Scoop..."
+    Write-Host "i Testing Scoop..." -ForegroundColor Blue
     $results += Test-PackageManager -Name "Scoop" -Command "scoop"
 
-    & $function:Write-Info "Testing WinGet..."
+    Write-Host "i Testing WinGet..." -ForegroundColor Blue
     $results += Test-PackageManager -Name "WinGet" -Command "winget"
 
     # Show detailed report if requested
@@ -133,13 +128,13 @@ function Start-PackageManagerVerification {
         foreach ($failed in $failedManagers) {
             switch ($failed.Name) {
                 "Chocolatey" {
-                    & $function:Write-Info "To install Chocolatey: Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
+                    Write-Host "i To install Chocolatey: Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" -ForegroundColor Blue
                 }
                 "Scoop" {
-                    & $function:Write-Info "To install Scoop: Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm get.scoop.sh | iex"
+                    Write-Host "i To install Scoop: Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm get.scoop.sh | iex" -ForegroundColor Blue
                 }
                 "WinGet" {
-                    & $function:Write-Info "WinGet should be pre-installed. Try restarting PowerShell or install from Microsoft Store."
+                    Write-Host "i WinGet should be pre-installed. Try restarting PowerShell or install from Microsoft Store." -ForegroundColor Blue
                 }
             }
         }
