@@ -512,7 +512,7 @@ function Show-FirebaseConfirmation {
         $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         
         switch ($key.VirtualKeyCode) {
-            38, 40 { # Up/Down arrow
+            { $_ -in 38, 40 } { # Up/Down arrow
                 $selectedIndex = 1 - $selectedIndex  # Toggle between 0 and 1
                 # Move cursor up to redraw
                 [Console]::SetCursorPosition(0, [Console]::CursorTop - 4)

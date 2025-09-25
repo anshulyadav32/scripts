@@ -158,7 +158,7 @@ $script:ServerRegistry = @{
         Dependencies = @("nodejs", "postgresql", "python", "git", "xampp")
         InstallScript = "install-server-stack.ps1"
         VerificationCommand = $null
-        Icon = "🏗️"
+        Icon = "[STACK]"
     }
 }
 
