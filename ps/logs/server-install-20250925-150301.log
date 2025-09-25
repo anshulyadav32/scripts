@@ -1,0 +1,26 @@
+﻿=== Server Installation Log ===
+Start Time: 09/25/2025 15:03:00
+PowerShell Version: 5.1.20348.4163
+OS Version: Microsoft Windows NT 10.0.20348.0
+User: Administrator
+Computer: EC2AMAZ-O5S6550
+=====================================
+
+[2025-09-25 15:03:00] [INFO] Logging system initialized successfully
+[2025-09-25 15:03:00] [INFO] Server Installation Script Started
+[2025-09-25 15:03:00] [INFO] Parameters: Components=, VerifyOnly=True, All=True, Detailed=True
+[2025-09-25 15:03:00] [INFO] Processing all available components
+[2025-09-25 15:03:00] [INFO] Valid components to process: git, nodejs, postgresql, python, serverstack, xampp
+[2025-09-25 15:03:00] [INFO] Verifying installation of git
+[2025-09-25 15:03:00] [SUCCESS] git verified via command: git --version
+[2025-09-25 15:03:00] [INFO] Verifying installation of nodejs
+[2025-09-25 15:03:00] [SUCCESS] nodejs verified via command: node --version
+[2025-09-25 15:03:00] [INFO] Verifying installation of postgresql
+[2025-09-25 15:03:01] [SUCCESS] postgresql verified via command: psql --version
+[2025-09-25 15:03:01] [INFO] Verifying installation of python
+[2025-09-25 15:03:01] [SUCCESS] python verified via command: python --version
+[2025-09-25 15:03:01] [INFO] Verifying installation of serverstack
+[2025-09-25 15:03:01] [WARNING] serverstack not detected by any verification method
+[2025-09-25 15:03:01] [INFO] Verifying installation of xampp
+[2025-09-25 15:03:01] [SUCCESS] xampp verified via path detection
+[2025-09-25 15:03:01] [INFO] Server Installation Script Completed
